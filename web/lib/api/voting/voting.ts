@@ -22,6 +22,7 @@ import type {
   GetApiVotingElection200,
   PostApiVotingCast200,
   PostApiVotingCastBody,
+  PostApiVotingLogout200,
   PostApiVotingRequestOtp200,
   PostApiVotingRequestOtpBody,
   PostApiVotingVerifyOtpBody
@@ -31,6 +32,62 @@ import { mutator } from '../../api-client';
 
 
 /**
+ * Clear the voter's authentication cookie
+ * @summary Logout voter
+ */
+export const postApiVotingLogout = (
+    
+ ) => {
+      
+      
+      return mutator<PostApiVotingLogout200>(
+      {url: `/api/voting/logout`, method: 'POST'
+    },
+      );
+    }
+  
+
+
+export const getPostApiVotingLogoutMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiVotingLogout>>, TError,void, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof postApiVotingLogout>>, TError,void, TContext> => {
+const {mutation: mutationOptions} = options ?? {};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postApiVotingLogout>>, void> = () => {
+          
+
+          return  postApiVotingLogout()
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostApiVotingLogoutMutationResult = NonNullable<Awaited<ReturnType<typeof postApiVotingLogout>>>
+    
+    export type PostApiVotingLogoutMutationError = unknown
+
+    /**
+ * @summary Logout voter
+ */
+export const usePostApiVotingLogout = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiVotingLogout>>, TError,void, TContext>, }
+): UseMutationResult<
+        Awaited<ReturnType<typeof postApiVotingLogout>>,
+        TError,
+        void,
+        TContext
+      > => {
+
+      const mutationOptions = getPostApiVotingLogoutMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    /**
  * Request a one-time password to authenticate a voter for voting
  * @summary Request OTP for voting
  */

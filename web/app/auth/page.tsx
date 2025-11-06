@@ -4,14 +4,33 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from '@/components/ui/input-otp';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Vote, Phone, Shield, ArrowRight, Loader2 } from 'lucide-react';
+import {
+  Vote,
+  Phone,
+  Shield,
+  ArrowRight,
+  Loader2,
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { usePostApiVotingRequestOtp, usePostApiVotingVerifyOtp } from '@/lib/api/voting/voting';
+import {
+  usePostApiVotingRequestOtp,
+  usePostApiVotingVerifyOtp,
+} from '@/lib/api/voting/voting';
 
 type AuthStep = 'phone' | 'otp';
 
@@ -29,7 +48,10 @@ export default function AuthPage() {
         setStep('otp');
       },
       onError: (error: any) => {
-        toast.error(error.response?.data?.message || 'Failed to send OTP. Please try again.');
+        toast.error(
+          error.response?.data?.message ||
+            'Failed to send OTP. Please try again.'
+        );
       },
     },
   });
@@ -43,10 +65,13 @@ export default function AuthPage() {
         // Login the user with their phone number
         login(phoneNumber.trim(), data?.voter?.fullName);
         toast.success('Authentication successful!');
-        router.push('/vote');
+        router.push('/');
       },
       onError: (error: any) => {
-        toast.error(error.response?.data?.message || 'Invalid OTP. Please try again.');
+        toast.error(
+          error.response?.data?.message ||
+            'Invalid OTP. Please try again.'
+        );
         setOtp('');
       },
     },
@@ -58,7 +83,9 @@ export default function AuthPage() {
       toast.error('Please enter your phone number');
       return;
     }
-    requestOtpMutation.mutate({ data: { phone: phoneNumber.trim() } });
+    requestOtpMutation.mutate({
+      data: { phone: phoneNumber.trim() },
+    });
   };
 
   const handleOtpSubmit = (e: React.FormEvent) => {
@@ -70,13 +97,15 @@ export default function AuthPage() {
     verifyOtpMutation.mutate({
       data: {
         phone: phoneNumber.trim(),
-        code: otp
-      }
+        code: otp,
+      },
     });
   };
 
   const handleResendOtp = () => {
-    requestOtpMutation.mutate({ data: { phone: phoneNumber.trim() } });
+    requestOtpMutation.mutate({
+      data: { phone: phoneNumber.trim() },
+    });
   };
 
   return (
@@ -90,9 +119,7 @@ export default function AuthPage() {
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
             Ghana Election Platform
           </h1>
-          <p className="text-gray-600">
-            Secure voter authentication
-          </p>
+          <p className="text-gray-600">Secure voter authentication</p>
         </div>
 
         {/* Phone Number Step */}
@@ -104,11 +131,13 @@ export default function AuthPage() {
                 <span>Enter Phone Number</span>
               </CardTitle>
               <CardDescription>
-                We'll send you a verification code via SMS
+                We&apos;ll send you a verification code via SMS
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handlePhoneSubmit} className="space-y-4">
+              <form
+                onSubmit={handlePhoneSubmit}
+                className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
                   <Input
@@ -124,15 +153,15 @@ export default function AuthPage() {
                 <Alert>
                   <Shield className="h-4 w-4" />
                   <AlertDescription>
-                    Your phone number will be used to verify your identity and send you voting updates.
+                    Your phone number will be used to verify your
+                    identity and send you voting updates.
                   </AlertDescription>
                 </Alert>
 
                 <Button
                   type="submit"
                   className="w-full bg-green-600 hover:bg-green-700"
-                  disabled={requestOtpMutation.isPending}
-                >
+                  disabled={requestOtpMutation.isPending}>
                   {requestOtpMutation.isPending ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -173,8 +202,7 @@ export default function AuthPage() {
                       value={otp}
                       onChange={setOtp}
                       maxLength={6}
-                      disabled={verifyOtpMutation.isPending}
-                    >
+                      disabled={verifyOtpMutation.isPending}>
                       <InputOTPGroup>
                         <InputOTPSlot index={0} />
                         <InputOTPSlot index={1} />
@@ -190,8 +218,9 @@ export default function AuthPage() {
                 <Button
                   type="submit"
                   className="w-full bg-green-600 hover:bg-green-700"
-                  disabled={verifyOtpMutation.isPending || otp.length !== 6}
-                >
+                  disabled={
+                    verifyOtpMutation.isPending || otp.length !== 6
+                  }>
                   {verifyOtpMutation.isPending ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -204,15 +233,14 @@ export default function AuthPage() {
 
                 <div className="text-center space-y-2">
                   <p className="text-sm text-gray-600">
-                    Didn't receive the code?
+                    Didn&apos;t receive the code?
                   </p>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
                     onClick={handleResendOtp}
-                    disabled={requestOtpMutation.isPending}
-                  >
+                    disabled={requestOtpMutation.isPending}>
                     {requestOtpMutation.isPending ? (
                       <>
                         <Loader2 className="w-3 h-3 mr-1 animate-spin" />
@@ -232,8 +260,7 @@ export default function AuthPage() {
                     setStep('phone');
                     setOtp('');
                   }}
-                  className="w-full"
-                >
+                  className="w-full">
                   Change Phone Number
                 </Button>
               </form>

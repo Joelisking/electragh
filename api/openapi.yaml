@@ -72,6 +72,21 @@ paths:
                                     recentActivity: {type: array, items: {type: object, properties: {id: {type: string, format: uuid}, action: {type: string}, timestamp: {type: string, format: date-time}, user: {type: object, properties: {name: {type: string}, role: {type: string}}}, voter: {type: object, properties: {fullName: {type: string}}}}}}
                 '401':
                     description: 'Unauthorized - Authentication required'
+    /api/auth/logout:
+        post:
+            tags:
+                - Auth
+            summary: 'Logout admin user'
+            description: 'Clear the admin''s authentication cookies'
+            responses:
+                '200':
+                    description: 'Logout successful'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message: {type: string, example: 'Logout successful'}
     /api/auth/login:
         post:
             tags:
@@ -232,24 +247,15 @@ paths:
                     description: 'Unauthorized - Authentication required'
                 '403':
                     description: 'Forbidden - EC access required'
-    '/api/candidates/election/{electionId}':
+    /api/candidates:
         get:
             tags:
                 - Candidates
-            summary: 'Get candidates by election'
-            description: 'Retrieve all candidates for a specific election'
+            summary: 'Get all candidates'
+            description: 'Retrieve all candidates for the election'
             security:
                 -
                     bearerAuth: []
-            parameters:
-                -
-                    name: electionId
-                    in: path
-                    required: true
-                    description: 'Election ID'
-                    schema:
-                        type: string
-                        format: uuid
             responses:
                 '200':
                     description: 'Candidates retrieved successfully'
@@ -375,24 +381,15 @@ paths:
                     description: 'Forbidden - EC access required'
                 '404':
                     description: 'Election not found'
-    '/api/positions/election/{electionId}':
+    /api/positions:
         get:
             tags:
                 - Positions
-            summary: 'Get positions by election'
-            description: 'Retrieve all positions for a specific election'
+            summary: 'Get all positions'
+            description: 'Retrieve all positions for the election'
             security:
                 -
                     bearerAuth: []
-            parameters:
-                -
-                    name: electionId
-                    in: path
-                    required: true
-                    description: 'Election ID'
-                    schema:
-                        type: string
-                        format: uuid
             responses:
                 '200':
                     description: 'Positions retrieved successfully'
@@ -731,6 +728,21 @@ paths:
                     description: 'Forbidden - EC access required'
                 '404':
                     description: 'Voter not found'
+    /api/voting/logout:
+        post:
+            tags:
+                - Voting
+            summary: 'Logout voter'
+            description: 'Clear the voter''s authentication cookie'
+            responses:
+                '200':
+                    description: 'Logout successful'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message: {type: string, example: 'Logout successful'}
     /api/voting/request-otp:
         post:
             tags:

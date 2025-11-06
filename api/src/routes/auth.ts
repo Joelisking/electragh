@@ -217,7 +217,8 @@ router.post('/send-otp', async (req, res, next) => {
   }
 });
 
-// Verify OTP (Auth namespace)
+// Verify OTP (Auth namespace) - Only for admin OTP login, not voters
+// Note: Voters use /api/voting/verify-otp instead
 router.post('/verify-otp', async (req, res, next) => {
   try {
     const bodySchema = z
@@ -249,7 +250,66 @@ router.post('/verify-otp', async (req, res, next) => {
       throw new ValidationError('Invalid or expired OTP code');
     }
 
-    res.json({ message: 'OTP verified successfully' });
+    // This endpoint is ONLY for admin users authenticating via OTP
+    // Voters should use /api/voting/verify-otp
+    const user = await prisma.user.findFirst({
+      where: { phone: parsed.phone },
+    });
+
+    if (!user) {
+      throw new AuthenticationError('No admin account found with this phone number');
+    }
+
+    // Generate JWT tokens for admin
+    const accessToken = jwt.sign(
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET!,
+      { expiresIn: '1h' }
+    );
+
+    const refreshToken = jwt.sign(
+      { userId: user.id },
+      process.env.JWT_REFRESH_SECRET!,
+      { expiresIn: '7d' }
+    );
+
+    // Update last login
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        lastLoginAt: new Date(),
+        lastLoginIp: req.ip,
+      },
+    });
+
+    logger.info(`Admin user ${user.phone} logged in via OTP`);
+
+    // Set HTTP-Only cookies for admin tokens
+    res.cookie('admin-token', accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 1000, // 1 hour
+    });
+
+    res.cookie('admin-refresh-token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    res.json({
+      message: 'OTP verified successfully',
+      user: {
+        id: user.id,
+        name: user.name,
+        phone: user.phone,
+        role: user.role,
+      },
+      accessToken,
+      refreshToken,
+    });
   } catch (error) {
     next(error);
   }

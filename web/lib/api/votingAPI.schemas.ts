@@ -76,6 +76,10 @@ export type PostApiVotingRequestOtpBody = {
   phone: string;
 };
 
+export type PostApiVotingLogout200 = {
+  message?: string;
+};
+
 export type DeleteApiVotersId200 = {
   message?: string;
 };
@@ -271,19 +275,19 @@ export type GetApiPositionsId200 = {
   votes?: GetApiPositionsId200VotesItem[];
 };
 
-export type GetApiPositionsElectionElectionId200ItemCandidatesItem = {
+export type GetApiPositions200ItemCandidatesItem = {
   fullName?: string;
   id?: string;
   order?: number;
 };
 
-export type _GetApiPositionsElectionElectionId200ItemCount = {
+export type _GetApiPositions200ItemCount = {
   votes?: number;
 };
 
-export type GetApiPositionsElectionElectionId200Item = {
-  _count?: _GetApiPositionsElectionElectionId200ItemCount;
-  candidates?: GetApiPositionsElectionElectionId200ItemCandidatesItem[];
+export type GetApiPositions200Item = {
+  _count?: _GetApiPositions200ItemCount;
+  candidates?: GetApiPositions200ItemCandidatesItem[];
   description?: string;
   id?: string;
   isActive?: boolean;
@@ -411,18 +415,18 @@ page?: string;
 limit?: string;
 };
 
-export type GetApiCandidatesElectionElectionId200ItemPosition = {
+export type GetApiCandidates200ItemPosition = {
   id?: string;
   name?: string;
   order?: number;
 };
 
-export type _GetApiCandidatesElectionElectionId200ItemCount = {
+export type _GetApiCandidates200ItemCount = {
   votes?: number;
 };
 
-export type GetApiCandidatesElectionElectionId200Item = {
-  _count?: _GetApiCandidatesElectionElectionId200ItemCount;
+export type GetApiCandidates200Item = {
+  _count?: _GetApiCandidates200ItemCount;
   bio?: string;
   email?: string;
   fullName?: string;
@@ -431,7 +435,7 @@ export type GetApiCandidatesElectionElectionId200Item = {
   manifesto?: string;
   order?: number;
   phone?: string;
-  position?: GetApiCandidatesElectionElectionId200ItemPosition;
+  position?: GetApiCandidates200ItemPosition;
 };
 
 export type GetApiCandidatesPositionPositionId200ItemPositionElection = {
@@ -558,6 +562,10 @@ export type PostApiAuthLoginBody = (unknown & {
   /** User's phone number */
   phone?: string;
 });
+
+export type PostApiAuthLogout200 = {
+  message?: string;
+};
 
 /**
  * Breakdown of voters by status

@@ -16,6 +16,7 @@ import type {
 import type {
   PostApiAuthLogin200,
   PostApiAuthLoginBody,
+  PostApiAuthLogout200,
   PostApiAuthRefresh200,
   PostApiAuthRefreshBody,
   PostApiAuthRegisterAdmin201,
@@ -26,6 +27,62 @@ import { mutator } from '../../api-client';
 
 
 /**
+ * Clear the admin's authentication cookies
+ * @summary Logout admin user
+ */
+export const postApiAuthLogout = (
+    
+ ) => {
+      
+      
+      return mutator<PostApiAuthLogout200>(
+      {url: `/api/auth/logout`, method: 'POST'
+    },
+      );
+    }
+  
+
+
+export const getPostApiAuthLogoutMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiAuthLogout>>, TError,void, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof postApiAuthLogout>>, TError,void, TContext> => {
+const {mutation: mutationOptions} = options ?? {};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postApiAuthLogout>>, void> = () => {
+          
+
+          return  postApiAuthLogout()
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostApiAuthLogoutMutationResult = NonNullable<Awaited<ReturnType<typeof postApiAuthLogout>>>
+    
+    export type PostApiAuthLogoutMutationError = unknown
+
+    /**
+ * @summary Logout admin user
+ */
+export const usePostApiAuthLogout = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postApiAuthLogout>>, TError,void, TContext>, }
+): UseMutationResult<
+        Awaited<ReturnType<typeof postApiAuthLogout>>,
+        TError,
+        void,
+        TContext
+      > => {
+
+      const mutationOptions = getPostApiAuthLogoutMutationOptions(options);
+
+      return useMutation(mutationOptions);
+    }
+    /**
  * Authenticate user with email/phone and password
  * @summary User login
  */

@@ -15,7 +15,7 @@ import type {
   UseQueryResult
 } from '@tanstack/react-query'
 import type {
-  GetApiPositionsElectionElectionId200Item,
+  GetApiPositions200Item,
   GetApiPositionsId200
 } from '../votingAPI.schemas'
 import { mutator } from '../../api-client';
@@ -23,57 +23,57 @@ import { mutator } from '../../api-client';
 
 
 /**
- * Retrieve all positions for a specific election
- * @summary Get positions by election
+ * Retrieve all positions for the election
+ * @summary Get all positions
  */
-export const getApiPositionsElectionElectionId = (
-    electionId: string,
+export const getApiPositions = (
+    
  signal?: AbortSignal
 ) => {
       
       
-      return mutator<GetApiPositionsElectionElectionId200Item[]>(
-      {url: `/api/positions/election/${electionId}`, method: 'GET', signal
+      return mutator<GetApiPositions200Item[]>(
+      {url: `/api/positions`, method: 'GET', signal
     },
       );
     }
   
 
-export const getGetApiPositionsElectionElectionIdQueryKey = (electionId: string,) => {
-    return [`/api/positions/election/${electionId}`] as const;
+export const getGetApiPositionsQueryKey = () => {
+    return [`/api/positions`] as const;
     }
 
     
-export const getGetApiPositionsElectionElectionIdQueryOptions = <TData = Awaited<ReturnType<typeof getApiPositionsElectionElectionId>>, TError = void>(electionId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiPositionsElectionElectionId>>, TError, TData>>, }
+export const getGetApiPositionsQueryOptions = <TData = Awaited<ReturnType<typeof getApiPositions>>, TError = void>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiPositions>>, TError, TData>>, }
 ) => {
 
 const {query: queryOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetApiPositionsElectionElectionIdQueryKey(electionId);
+  const queryKey =  queryOptions?.queryKey ?? getGetApiPositionsQueryKey();
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiPositionsElectionElectionId>>> = ({ signal }) => getApiPositionsElectionElectionId(electionId, signal);
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiPositions>>> = ({ signal }) => getApiPositions(signal);
 
       
 
       
 
-   return  { queryKey, queryFn, enabled: !!(electionId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiPositionsElectionElectionId>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiPositions>>, TError, TData> & { queryKey: QueryKey }
 }
 
-export type GetApiPositionsElectionElectionIdQueryResult = NonNullable<Awaited<ReturnType<typeof getApiPositionsElectionElectionId>>>
-export type GetApiPositionsElectionElectionIdQueryError = void
+export type GetApiPositionsQueryResult = NonNullable<Awaited<ReturnType<typeof getApiPositions>>>
+export type GetApiPositionsQueryError = void
 
 /**
- * @summary Get positions by election
+ * @summary Get all positions
  */
-export const useGetApiPositionsElectionElectionId = <TData = Awaited<ReturnType<typeof getApiPositionsElectionElectionId>>, TError = void>(
- electionId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiPositionsElectionElectionId>>, TError, TData>>, }
+export const useGetApiPositions = <TData = Awaited<ReturnType<typeof getApiPositions>>, TError = void>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiPositions>>, TError, TData>>, }
 
   ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
 
-  const queryOptions = getGetApiPositionsElectionElectionIdQueryOptions(electionId,options)
+  const queryOptions = getGetApiPositionsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

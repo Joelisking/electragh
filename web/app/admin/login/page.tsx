@@ -32,6 +32,7 @@ export default function AdminLoginPage() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // Include cookies in request/response
         body: JSON.stringify({ phone, password }),
       });
 
@@ -41,8 +42,7 @@ export default function AdminLoginPage() {
         throw new Error(data.message || 'Login failed');
       }
 
-      // Store the access token
-      localStorage.setItem('admin-token', data.accessToken);
+      // Store user info (tokens are in HTTP-only cookies)
       localStorage.setItem('admin-user', JSON.stringify(data.user));
 
       toast.success('Login successful!');

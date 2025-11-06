@@ -79,7 +79,7 @@ export const verifyOtpSchema = z.object({
 // Voting validation schemas
 export const castVoteSchema = z.object({
   positionId: z.string().cuid(),
-  candidateId: z.string().cuid().optional(), // null for abstain
+  candidateId: z.string().cuid().nullable(), // null for abstain
 });
 
 // Dispute validation schemas

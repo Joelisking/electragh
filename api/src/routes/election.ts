@@ -366,6 +366,25 @@ router.get('/results', async (req: AuthenticatedRequest, res, next) => {
       orderBy: { order: 'asc' },
     });
 
+    // Get abstain votes for each position
+    const abstainVotes = await prisma.vote.groupBy({
+      by: ['positionId'],
+      where: {
+        candidateId: null,
+        ballot: {
+          electionId: election.id,
+        },
+      },
+      _count: {
+        id: true,
+      },
+    });
+
+    const abstainMap = abstainVotes.reduce((acc, item) => {
+      acc[item.positionId] = item._count.id;
+      return acc;
+    }, {} as Record<string, number>);
+
     // Calculate results for each position
     const results = positions.map((position) => {
       const totalVotes = position.candidates.reduce(
@@ -373,14 +392,17 @@ router.get('/results', async (req: AuthenticatedRequest, res, next) => {
         0
       );
 
+      const abstainCount = abstainMap[position.id] || 0;
+      const totalWithAbstain = totalVotes + abstainCount;
+
       const candidateResults = position.candidates.map((candidate) => ({
         id: candidate.id,
         name: candidate.fullName,
         classYearGroup: candidate.classYearGroup,
         votes: candidate._count.votes,
         percentage:
-          totalVotes > 0
-            ? Math.round((candidate._count.votes / totalVotes) * 10000) /
+          totalWithAbstain > 0
+            ? Math.round((candidate._count.votes / totalWithAbstain) * 10000) /
               100
             : 0,
       }));
@@ -388,7 +410,7 @@ router.get('/results', async (req: AuthenticatedRequest, res, next) => {
       return {
         positionId: position.id,
         positionName: position.name,
-        totalVotes,
+        totalVotes: totalWithAbstain,
         candidates: candidateResults.sort((a, b) => b.votes - a.votes),
       };
     });

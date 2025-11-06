@@ -212,7 +212,7 @@ export default function VotePage() {
       });
 
       await castVotesMutation.mutateAsync({
-        votes: votesToSubmit,
+        data: { votes: votesToSubmit },
       });
     } catch (error) {
       // Error handling is done in the mutation options
