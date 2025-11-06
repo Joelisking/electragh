@@ -7,23 +7,14 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // Send cookies with every request
 });
 
-// Add request interceptor to include auth token
+// Add request interceptor (no longer needed for token attachment - cookies handle it)
+// Keeping this for potential future use (e.g., request logging, custom headers)
 apiClient.interceptors.request.use(
   (config) => {
-    // Get token from localStorage (only in browser)
-    if (typeof window !== 'undefined') {
-      // Check for both voter token and admin token
-      const voterToken = localStorage.getItem('voting-token');
-      const adminToken = localStorage.getItem('admin-token');
-      const token = adminToken || voterToken;
-
-
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    }
+    // Cookies are automatically sent via withCredentials
     return config;
   },
   (error) => {

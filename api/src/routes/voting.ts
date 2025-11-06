@@ -29,6 +29,37 @@ import { logger } from '../utils/logger';
 
 const router = express.Router();
 
+// Logout voter (clear cookie)
+/**
+ * @openapi
+ * /api/voting/logout:
+ *   post:
+ *     tags:
+ *       - Voting
+ *     summary: Logout voter
+ *     description: Clear the voter's authentication cookie
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Logout successful"
+ */
+router.post('/logout', (req, res) => {
+  res.clearCookie('voting-token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  });
+
+  res.json({ message: 'Logout successful' });
+});
+
 // Request OTP for voter authentication
 /**
  * @openapi
@@ -264,9 +295,16 @@ router.post(
 
       logger.info(`Voter ${voter.id} authenticated successfully`);
 
+      // Set HTTP-Only cookie with the token
+      res.cookie('voting-token', token, {
+        httpOnly: true, // Prevents JavaScript access (XSS protection)
+        secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+        sameSite: 'strict', // CSRF protection
+        maxAge: 2 * 60 * 60 * 1000, // 2 hours (matches JWT expiry)
+      });
+
       res.json({
         message: 'Authentication successful',
-        token,
         voter: {
           id: voter.id,
           fullName: voter.fullName,

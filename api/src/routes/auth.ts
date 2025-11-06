@@ -14,6 +14,43 @@ import { verifyOtpSms, sendOtpSms } from '../services/smsService';
 
 const router = express.Router();
 
+// Logout (clear cookies)
+/**
+ * @openapi
+ * /api/auth/logout:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Logout admin user
+ *     description: Clear the admin's authentication cookies
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Logout successful"
+ */
+router.post('/logout', (req, res) => {
+  res.clearCookie('admin-token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  });
+
+  res.clearCookie('admin-refresh-token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  });
+
+  res.json({ message: 'Logout successful' });
+});
+
 // Admin/EC login
 /**
  * @openapi
@@ -127,6 +164,21 @@ router.post('/login', authRateLimiter, async (req, res, next) => {
     logger.info(
       `User ${user.phone} logged in successfully`
     );
+
+    // Set HTTP-Only cookies for tokens
+    res.cookie('admin-token', accessToken, {
+      httpOnly: true, // Prevents JavaScript access (XSS protection)
+      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+      sameSite: 'strict', // CSRF protection
+      maxAge: 60 * 60 * 1000, // 1 hour (matches JWT expiry)
+    });
+
+    res.cookie('admin-refresh-token', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
 
     res.json({
       user: {

@@ -37,11 +37,9 @@ export default function AuthPage() {
   const verifyOtpMutation = usePostApiVotingVerifyOtp({
     mutation: {
       onSuccess: (data: any) => {
-        // Store the voter token in localStorage
-        if (data?.token) {
-          localStorage.setItem('voting-token', data.token);
-        }
-        
+        // Token is now stored in HTTP-Only cookie by the backend
+        // No need to manually store it in localStorage
+
         // Login the user with their phone number
         login(phoneNumber.trim(), data?.voter?.fullName);
         toast.success('Authentication successful!');
