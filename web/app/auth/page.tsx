@@ -36,9 +36,14 @@ export default function AuthPage() {
 
   const verifyOtpMutation = usePostApiVotingVerifyOtp({
     mutation: {
-      onSuccess: (data) => {
+      onSuccess: (data: any) => {
+        // Store the voter token in localStorage
+        if (data?.token) {
+          localStorage.setItem('voting-token', data.token);
+        }
+        
         // Login the user with their phone number
-        login(phoneNumber.trim());
+        login(phoneNumber.trim(), data?.voter?.fullName);
         toast.success('Authentication successful!');
         router.push('/vote');
       },

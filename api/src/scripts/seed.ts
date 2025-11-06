@@ -21,7 +21,10 @@ async function main() {
       logger.info('✅ Default admin already exists, skipping...');
     } else {
       // Hash the password
-      const hashedPassword = await bcrypt.hash(defaultAdminPassword, 12);
+      const hashedPassword = await bcrypt.hash(
+        defaultAdminPassword,
+        12
+      );
 
       // Create the admin user
       const admin = await prisma.user.create({
@@ -66,7 +69,8 @@ async function main() {
       const election = await prisma.election.create({
         data: {
           title: 'School Leadership Election',
-          description: 'Official election for student leadership positions',
+          description:
+            'Official election for student leadership positions',
           startAt: startDate,
           endAt: endDate,
           timezone: 'Africa/Accra',
@@ -92,7 +96,9 @@ async function main() {
         { name: 'PRO', order: 9 },
       ];
 
-      const createdPositions = [];
+      const createdPositions: Awaited<
+        ReturnType<typeof prisma.position.create>
+      >[] = [];
       for (const position of positions) {
         const createdPosition = await prisma.position.create({
           data: {
@@ -110,27 +116,62 @@ async function main() {
       logger.info('👥 Creating sample candidates...');
 
       const sampleCandidates = {
-        'President': [
-          { fullName: 'John Doe', classYearGroup: 'Class of 2024', bio: 'Experienced leader with vision for change' },
-          { fullName: 'Jane Smith', classYearGroup: 'Class of 2025', bio: 'Passionate about student welfare' },
+        President: [
+          {
+            fullName: 'John Doe',
+            classYearGroup: 'Class of 2024',
+            bio: 'Experienced leader with vision for change',
+          },
+          {
+            fullName: 'Jane Smith',
+            classYearGroup: 'Class of 2025',
+            bio: 'Passionate about student welfare',
+          },
         ],
         'Vice President': [
-          { fullName: 'Alice Johnson', classYearGroup: 'Class of 2024', bio: 'Dedicated to serving the community' },
-          { fullName: 'Bob Wilson', classYearGroup: 'Class of 2025', bio: 'Fresh ideas for modern challenges' },
+          {
+            fullName: 'Alice Johnson',
+            classYearGroup: 'Class of 2024',
+            bio: 'Dedicated to serving the community',
+          },
+          {
+            fullName: 'Bob Wilson',
+            classYearGroup: 'Class of 2025',
+            bio: 'Fresh ideas for modern challenges',
+          },
         ],
-        'Secretary': [
-          { fullName: 'Carol Brown', classYearGroup: 'Class of 2024', bio: 'Detail-oriented and organized' },
-          { fullName: 'David Lee', classYearGroup: 'Class of 2025', bio: 'Strong communication skills' },
+        Secretary: [
+          {
+            fullName: 'Carol Brown',
+            classYearGroup: 'Class of 2024',
+            bio: 'Detail-oriented and organized',
+          },
+          {
+            fullName: 'David Lee',
+            classYearGroup: 'Class of 2025',
+            bio: 'Strong communication skills',
+          },
         ],
-        'Treasurer': [
-          { fullName: 'Emma Davis', classYearGroup: 'Class of 2024', bio: 'Financial expertise and transparency' },
-          { fullName: 'Frank Miller', classYearGroup: 'Class of 2025', bio: 'Committed to fiscal responsibility' },
+        Treasurer: [
+          {
+            fullName: 'Emma Davis',
+            classYearGroup: 'Class of 2024',
+            bio: 'Financial expertise and transparency',
+          },
+          {
+            fullName: 'Frank Miller',
+            classYearGroup: 'Class of 2025',
+            bio: 'Committed to fiscal responsibility',
+          },
         ],
       };
 
       let candidateCount = 0;
       for (const position of createdPositions) {
-        const candidates = sampleCandidates[position.name as keyof typeof sampleCandidates];
+        const candidates =
+          sampleCandidates[
+            position.name as keyof typeof sampleCandidates
+          ];
         if (candidates) {
           for (let i = 0; i < candidates.length; i++) {
             await prisma.candidate.create({
@@ -152,36 +193,73 @@ async function main() {
       // Check if we need to create candidates for existing positions
       const existingCandidates = await prisma.candidate.count();
       if (existingCandidates === 0) {
-        logger.info('👥 Creating sample candidates for existing positions...');
+        logger.info(
+          '👥 Creating sample candidates for existing positions...'
+        );
 
         // Get the first election and its positions
         const election = await prisma.election.findFirst({
-          include: { positions: true }
+          include: { positions: true },
         });
 
         if (election) {
           const sampleCandidates = {
-            'President': [
-              { fullName: 'John Doe', classYearGroup: 'Class of 2024', bio: 'Experienced leader with vision for change' },
-              { fullName: 'Jane Smith', classYearGroup: 'Class of 2025', bio: 'Passionate about student welfare' },
+            President: [
+              {
+                fullName: 'John Doe',
+                classYearGroup: 'Class of 2024',
+                bio: 'Experienced leader with vision for change',
+              },
+              {
+                fullName: 'Jane Smith',
+                classYearGroup: 'Class of 2025',
+                bio: 'Passionate about student welfare',
+              },
             ],
             'Vice President': [
-              { fullName: 'Alice Johnson', classYearGroup: 'Class of 2024', bio: 'Dedicated to serving the community' },
-              { fullName: 'Bob Wilson', classYearGroup: 'Class of 2025', bio: 'Fresh ideas for modern challenges' },
+              {
+                fullName: 'Alice Johnson',
+                classYearGroup: 'Class of 2024',
+                bio: 'Dedicated to serving the community',
+              },
+              {
+                fullName: 'Bob Wilson',
+                classYearGroup: 'Class of 2025',
+                bio: 'Fresh ideas for modern challenges',
+              },
             ],
-            'Secretary': [
-              { fullName: 'Carol Brown', classYearGroup: 'Class of 2024', bio: 'Detail-oriented and organized' },
-              { fullName: 'David Lee', classYearGroup: 'Class of 2025', bio: 'Strong communication skills' },
+            Secretary: [
+              {
+                fullName: 'Carol Brown',
+                classYearGroup: 'Class of 2024',
+                bio: 'Detail-oriented and organized',
+              },
+              {
+                fullName: 'David Lee',
+                classYearGroup: 'Class of 2025',
+                bio: 'Strong communication skills',
+              },
             ],
-            'Treasurer': [
-              { fullName: 'Emma Davis', classYearGroup: 'Class of 2024', bio: 'Financial expertise and transparency' },
-              { fullName: 'Frank Miller', classYearGroup: 'Class of 2025', bio: 'Committed to fiscal responsibility' },
+            Treasurer: [
+              {
+                fullName: 'Emma Davis',
+                classYearGroup: 'Class of 2024',
+                bio: 'Financial expertise and transparency',
+              },
+              {
+                fullName: 'Frank Miller',
+                classYearGroup: 'Class of 2025',
+                bio: 'Committed to fiscal responsibility',
+              },
             ],
           };
 
           let candidateCount = 0;
           for (const position of election.positions) {
-            const candidates = sampleCandidates[position.name as keyof typeof sampleCandidates];
+            const candidates =
+              sampleCandidates[
+                position.name as keyof typeof sampleCandidates
+              ];
             if (candidates) {
               for (let i = 0; i < candidates.length; i++) {
                 await prisma.candidate.create({
@@ -198,13 +276,40 @@ async function main() {
             }
           }
 
-          logger.info(`✅ Created ${candidateCount} sample candidates for existing positions`);
+          logger.info(
+            `✅ Created ${candidateCount} sample candidates for existing positions`
+          );
         }
       }
     }
 
+    // Create voter user for Joel Adu
+    const voterPhone = '+12603486805';
+    const existingVoter = await prisma.voter.findUnique({
+      where: { phone: voterPhone },
+    });
+
+    if (!existingVoter) {
+      const voter = await prisma.voter.create({
+        data: {
+          fullName: 'Joel Adu',
+          phone: voterPhone,
+          status: 'INVITED',
+        },
+      });
+
+      logger.info(
+        `✅ Created voter: ${voter.fullName} (${voter.phone})`
+      );
+    } else {
+      logger.info(
+        `✅ Voter already exists: ${existingVoter.fullName} (${existingVoter.phone})`
+      );
+    }
+
     // Create sample notification schedules
-    const existingSchedules = await prisma.notificationSchedule.count();
+    const existingSchedules =
+      await prisma.notificationSchedule.count();
     if (existingSchedules === 0) {
       logger.info('📅 Creating default notification schedules...');
 
@@ -220,12 +325,19 @@ async function main() {
           },
           {
             type: 'VOTE_MIDWAY' as const,
-            sendAt: new Date(election.startAt.getTime() + (election.endAt.getTime() - election.startAt.getTime()) / 2),
+            sendAt: new Date(
+              election.startAt.getTime() +
+                (election.endAt.getTime() -
+                  election.startAt.getTime()) /
+                  2
+            ),
             templateId: 'vote_midway',
           },
           {
             type: 'VOTE_NEAR_END' as const,
-            sendAt: new Date(election.endAt.getTime() - 4 * 60 * 60 * 1000), // 4 hours before end
+            sendAt: new Date(
+              election.endAt.getTime() - 4 * 60 * 60 * 1000
+            ), // 4 hours before end
             templateId: 'vote_near_end',
           },
           {
@@ -244,7 +356,9 @@ async function main() {
           });
         }
 
-        logger.info(`✅ Created ${schedules.length} notification schedules`);
+        logger.info(
+          `✅ Created ${schedules.length} notification schedules`
+        );
       }
     }
 
@@ -254,8 +368,9 @@ async function main() {
     logger.info(`   Phone: ${defaultAdminPhone}`);
     logger.info(`   Password: ${defaultAdminPassword}`);
     logger.info('');
-    logger.info('⚠️  IMPORTANT: Change the default admin password after first login!');
-
+    logger.info(
+      '⚠️  IMPORTANT: Change the default admin password after first login!'
+    );
   } catch (error) {
     logger.error('❌ Error during seeding:', error);
     throw error;
@@ -264,8 +379,7 @@ async function main() {
   }
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
