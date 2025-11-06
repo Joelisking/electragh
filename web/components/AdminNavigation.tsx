@@ -34,11 +34,6 @@ const navigationItems = [
     icon: UserCheck,
   },
   {
-    label: 'Elections',
-    href: '/admin/elections',
-    icon: Vote,
-  },
-  {
     label: 'Results',
     href: '/admin/results',
     icon: BarChart3,

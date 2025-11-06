@@ -17,6 +17,7 @@ import {
   uploadCandidateImage,
   deleteCandidateImage,
 } from '../services/imageStorageService';
+import { getSingleElectionId, getSingleElection } from '../utils/singleElection';
 
 const router = express.Router();
 
@@ -153,25 +154,17 @@ router.get('/position/:positionId', async (req, res, next) => {
   }
 });
 
-// Get all candidates for an election
+// Get all candidates for the election
 /**
  * @openapi
- * /api/candidates/election/{electionId}:
+ * /api/candidates:
  *   get:
  *     tags:
  *       - Candidates
- *     summary: Get candidates by election
- *     description: Retrieve all candidates for a specific election
+ *     summary: Get all candidates
+ *     description: Retrieve all candidates for the election
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - name: electionId
- *         in: path
- *         required: true
- *         description: Election ID
- *         schema:
- *           type: string
- *           format: uuid
  *     responses:
  *       200:
  *         description: Candidates retrieved successfully
@@ -220,10 +213,11 @@ router.get('/position/:positionId', async (req, res, next) => {
  *       403:
  *         description: Forbidden - EC access required
  */
-router.get('/election/:electionId', async (req, res, next) => {
+router.get('/', async (req, res, next) => {
   try {
+    const electionId = await getSingleElectionId();
     const candidates = await prisma.candidate.findMany({
-      where: { electionId: req.params.electionId },
+      where: { electionId },
       include: {
         position: {
           select: {
@@ -314,33 +308,31 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', upload.single('photo'), async (req, res, next) => {
   try {
     const candidateData = createCandidateSchema.parse(req.body);
-    const { electionId, positionId } = req.body;
+    const { positionId } = req.body;
 
-    if (!electionId || !positionId) {
-      throw new ValidationError(
-        'Election ID and Position ID are required'
-      );
+    if (!positionId) {
+      throw new ValidationError('Position ID is required');
     }
 
-    // Check if election and position exist and are editable
+    // Get the single election
+    const election = await getSingleElection();
+
+    // Check if position exists and belongs to the election
     const position = await prisma.position.findUnique({
       where: { id: positionId },
-      include: {
-        election: true,
-      },
     });
 
     if (!position) {
       throw new NotFoundError('Position not found');
     }
 
-    if (position.electionId !== electionId) {
+    if (position.electionId !== election.id) {
       throw new ValidationError(
-        'Position does not belong to the specified election'
+        'Position does not belong to the election'
       );
     }
 
-    if (['ACTIVE', 'ENDED'].includes(position.election.status)) {
+    if (['ACTIVE', 'ENDED'].includes(election.status)) {
       throw new ValidationError(
         'Cannot add candidates to an active or ended election'
       );
@@ -399,7 +391,7 @@ router.post('/', upload.single('photo'), async (req, res, next) => {
     const candidate = await prisma.candidate.create({
       data: {
         ...candidateData,
-        electionId,
+        electionId: election.id,
         positionId,
         photoUrl,
       },

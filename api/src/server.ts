@@ -9,6 +9,7 @@ import path from 'path';
 import authRoutes from './routes/auth';
 import voterRoutes from './routes/voters';
 import electionRoutes from './routes/elections';
+import electionRoute from './routes/election';
 import candidateRoutes from './routes/candidates';
 import positionRoutes from './routes/positions';
 import votingRoutes from './routes/voting';
@@ -22,6 +23,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { auditLogger } from './middleware/auditLogger';
 import { rateLimiter } from './middleware/rateLimiter';
 import { logger } from './utils/logger';
+import { initializeSingleElection } from './utils/singleElection';
 
 // Load environment variables (.env.local takes precedence over .env)
 dotenv.config({ path: path.resolve(__dirname, '../.env.local'), override: true });
@@ -90,6 +92,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/voters', voterRoutes);
 app.use('/api/elections', electionRoutes);
+app.use('/api/election', electionRoute);
 app.use('/api/candidates', candidateRoutes);
 app.use('/api/positions', positionRoutes);
 app.use('/api/voting', votingRoutes);
@@ -125,12 +128,20 @@ process.on('SIGINT', async () => {
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   logger.info(
     `🚀 Ghana Election Platform Backend running on port ${PORT}`
   );
   logger.info(`📊 Environment: ${process.env.NODE_ENV}`);
   logger.info(`🔒 Security headers enabled`);
+
+  // Initialize single election system
+  try {
+    await initializeSingleElection();
+    logger.info('✅ Single election system ready');
+  } catch (error) {
+    logger.error('❌ Failed to initialize single election system', error);
+  }
 });
 
 export default app;
