@@ -50,21 +50,34 @@ async function main() {
         throw new Error('Admin user not found for election creation');
       }
 
-      // Create a test election that's always active for development
+      // Create the permanent election
       const now = new Date();
+
+      // Default to starting tomorrow at 8 AM
+      const startDate = new Date(now);
+      startDate.setDate(startDate.getDate() + 1);
+      startDate.setHours(8, 0, 0, 0);
+
+      // Default to ending 7 days later at 8 PM
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 7);
+      endDate.setHours(20, 0, 0, 0);
+
       const election = await prisma.election.create({
         data: {
-          title: 'AGOSA Elections 2025',
-          description: 'Annual General Meeting and Elections for AGOSA (Test Election)',
-          startAt: new Date(now.getTime() - 24 * 60 * 60 * 1000), // Started 1 day ago
-          endAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // Ends 30 days from now
+          title: 'School Leadership Election',
+          description: 'Official election for student leadership positions',
+          startAt: startDate,
+          endAt: endDate,
           timezone: 'Africa/Accra',
-          status: 'ACTIVE',
-          visibility: 'PUBLIC',
+          status: 'DRAFT',
+          visibility: 'RESTRICTED',
           allowAbstain: true,
           createdBy: adminUser.id,
         },
       });
+
+      logger.info(`✅ Created permanent election: ${election.title}`);
 
       // Create sample positions
       const positions = [

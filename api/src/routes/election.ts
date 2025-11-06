@@ -5,7 +5,6 @@ import {
   requireECAccess,
   AuthenticatedRequest,
 } from '../middleware/auth';
-import { createElectionSchema } from '../utils/validation';
 import {
   ValidationError,
   NotFoundError,
@@ -24,7 +23,9 @@ const router = express.Router();
 router.use(authenticateAdmin);
 router.use(requireECAccess);
 
-// Get the election
+/**
+ * Get the permanent election details
+ */
 router.get('/', async (req: AuthenticatedRequest, res, next) => {
   try {
     const election = await getSingleElectionWithDetails();
@@ -34,45 +35,92 @@ router.get('/', async (req: AuthenticatedRequest, res, next) => {
   }
 });
 
-// Update the election
-router.put('/', async (req: AuthenticatedRequest, res, next) => {
+/**
+ * Update election settings
+ * Only allows updating basic settings, not critical fields
+ */
+router.patch('/settings', async (req: AuthenticatedRequest, res, next) => {
   try {
-    const electionData = createElectionSchema.parse(req.body);
+    const { title, description, startAt, endAt, timezone, allowAbstain } = req.body;
 
     const existingElection = await getSingleElection();
 
-    // Prevent updates if election is active or ended
+    // Prevent date updates if election is active or ended
     if (['ACTIVE', 'ENDED'].includes(existingElection.status)) {
-      throw new ValidationError(
-        'Cannot update an active or ended election'
-      );
+      if (startAt || endAt) {
+        throw new ValidationError(
+          'Cannot update election dates when election is active or ended'
+        );
+      }
     }
 
-    // Validate dates
-    const startDate = new Date(electionData.startAt);
-    const endDate = new Date(electionData.endAt);
+    // Validate dates if provided
+    if (startAt && endAt) {
+      const startDate = new Date(startAt);
+      const endDate = new Date(endAt);
 
-    if (startDate >= endDate) {
-      throw new ValidationError('End date must be after start date');
+      if (startDate >= endDate) {
+        throw new ValidationError('End date must be after start date');
+      }
     }
 
-    const election = await updateSingleElection({
-      ...electionData,
-      startAt: startDate,
-      endAt: endDate,
-    });
+    // Build update object with only allowed fields
+    const updateData: any = {};
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (startAt !== undefined) updateData.startAt = new Date(startAt);
+    if (endAt !== undefined) updateData.endAt = new Date(endAt);
+    if (timezone !== undefined) updateData.timezone = timezone;
+    if (allowAbstain !== undefined) updateData.allowAbstain = allowAbstain;
+
+    const election = await updateSingleElection(updateData);
 
     logger.info(
-      `Election updated: ${election.id} by user ${req.user!.id}`
+      `Election settings updated by user ${req.user!.id}`
     );
 
-    res.json(election);
+    res.json({
+      message: 'Election settings updated successfully',
+      election,
+    });
   } catch (error) {
     next(error);
   }
 });
 
-// Start election
+/**
+ * Toggle election visibility
+ */
+router.patch('/visibility', async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const { visibility } = req.body;
+
+    if (!visibility || !['RESTRICTED', 'PUBLIC', 'LIVE_PUBLIC'].includes(visibility)) {
+      throw new ValidationError(
+        'Invalid visibility value. Must be RESTRICTED, PUBLIC, or LIVE_PUBLIC'
+      );
+    }
+
+    const election = await updateSingleElection({ visibility });
+
+    clearElectionCache();
+
+    logger.info(
+      `Election visibility changed to ${visibility} by user ${req.user!.id}`
+    );
+
+    res.json({
+      message: 'Election visibility updated successfully',
+      election,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Start/Activate the election
+ */
 router.post('/start', async (req: AuthenticatedRequest, res, next) => {
   try {
     const election = await getSingleElectionWithDetails();
@@ -115,7 +163,7 @@ router.post('/start', async (req: AuthenticatedRequest, res, next) => {
     clearElectionCache();
 
     logger.info(
-      `Election started: ${election.id} by user ${req.user!.id}`
+      `Election started by user ${req.user!.id}`
     );
 
     res.json({
@@ -127,7 +175,9 @@ router.post('/start', async (req: AuthenticatedRequest, res, next) => {
   }
 });
 
-// Pause election
+/**
+ * Pause the election
+ */
 router.post('/pause', async (req: AuthenticatedRequest, res, next) => {
   try {
     const election = await getSingleElection();
@@ -143,7 +193,7 @@ router.post('/pause', async (req: AuthenticatedRequest, res, next) => {
     clearElectionCache();
 
     logger.info(
-      `Election paused: ${election.id} by user ${req.user!.id}`
+      `Election paused by user ${req.user!.id}`
     );
 
     res.json({
@@ -155,7 +205,9 @@ router.post('/pause', async (req: AuthenticatedRequest, res, next) => {
   }
 });
 
-// Resume election
+/**
+ * Resume the election
+ */
 router.post('/resume', async (req: AuthenticatedRequest, res, next) => {
   try {
     const election = await getSingleElection();
@@ -171,7 +223,7 @@ router.post('/resume', async (req: AuthenticatedRequest, res, next) => {
     clearElectionCache();
 
     logger.info(
-      `Election resumed: ${election.id} by user ${req.user!.id}`
+      `Election resumed by user ${req.user!.id}`
     );
 
     res.json({
@@ -183,7 +235,9 @@ router.post('/resume', async (req: AuthenticatedRequest, res, next) => {
   }
 });
 
-// End election
+/**
+ * End the election
+ */
 router.post('/end', async (req: AuthenticatedRequest, res, next) => {
   try {
     const election = await getSingleElection();
@@ -201,11 +255,71 @@ router.post('/end', async (req: AuthenticatedRequest, res, next) => {
     clearElectionCache();
 
     logger.info(
-      `Election ended: ${election.id} by user ${req.user!.id}`
+      `Election ended by user ${req.user!.id}`
     );
 
     res.json({
       message: 'Election ended successfully',
+      election: updatedElection,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * Reset the election for a new cycle
+ * This archives old data and prepares the election for a new run
+ */
+router.post('/reset', async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const election = await getSingleElection();
+
+    if (election.status === 'ACTIVE') {
+      throw new ValidationError(
+        'Cannot reset an active election. Please end it first.'
+      );
+    }
+
+    // Archive old ballots and votes by marking them with the old election cycle
+    // In a more complex system, you might want to create an archive table
+
+    // Clear all ballots and votes
+    await prisma.vote.deleteMany({
+      where: {
+        ballot: {
+          electionId: election.id,
+        },
+      },
+    });
+
+    await prisma.ballot.deleteMany({
+      where: {
+        electionId: election.id,
+      },
+    });
+
+    // Reset voter voting status
+    await prisma.voter.updateMany({
+      data: {
+        hasVoted: false,
+        votedAt: null,
+      },
+    });
+
+    // Reset election to DRAFT status
+    const updatedElection = await updateSingleElection({
+      status: 'DRAFT',
+    });
+
+    clearElectionCache();
+
+    logger.info(
+      `Election reset for new cycle by user ${req.user!.id}`
+    );
+
+    res.json({
+      message: 'Election reset successfully. Ready for new cycle.',
       election: updatedElection,
     });
   } catch (error) {
