@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { apiClient } from '@/lib/api-client';
 
 interface User {
   phoneNumber: string;
@@ -12,7 +13,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (phoneNumber: string, fullName?: string) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -53,10 +54,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.setItem('voting-auth', JSON.stringify(userData));
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('voting-auth');
-    localStorage.removeItem('voting-token');
+  const logout = async () => {
+    try {
+      // Call backend to clear HTTP-Only cookie
+      await apiClient.post('/api/voting/logout');
+    } catch (error) {
+      // Even if the logout endpoint fails, clear local state
+      console.error('Logout endpoint error:', error);
+    } finally {
+      // Clear local authentication state
+      setUser(null);
+      localStorage.removeItem('voting-auth');
+    }
   };
 
   const value: AuthContextType = {

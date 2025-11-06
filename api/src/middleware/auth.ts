@@ -25,7 +25,13 @@ export const authenticateAdmin = async (
   next: NextFunction
 ) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    // Try to get token from HTTP-Only cookie first, then fall back to Authorization header
+    let token = req.cookies?.['admin-token'];
+
+    if (!token) {
+      // Fallback to Authorization header for backward compatibility
+      token = req.headers.authorization?.replace('Bearer ', '');
+    }
 
     if (!token) {
       return res.status(401).json({ error: 'Access token required' });
@@ -63,7 +69,13 @@ export const authenticateVoter = async (
   next: NextFunction
 ) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    // Try to get token from HTTP-Only cookie first, then fall back to Authorization header
+    let token = req.cookies?.['voting-token'];
+
+    if (!token) {
+      // Fallback to Authorization header for backward compatibility
+      token = req.headers.authorization?.replace('Bearer ', '');
+    }
 
     if (!token) {
       return res.status(401).json({ error: 'Access token required' });
