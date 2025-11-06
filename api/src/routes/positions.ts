@@ -11,6 +11,7 @@ import {
   ConflictError,
 } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
+import { getSingleElectionId, getSingleElection } from '../utils/singleElection';
 
 const router = express.Router();
 
@@ -18,25 +19,17 @@ const router = express.Router();
 router.use(authenticateAdmin);
 router.use(requireECAccess);
 
-// Get all positions for an election
+// Get all positions for the single election
 /**
  * @openapi
- * /api/positions/election/{electionId}:
+ * /api/positions:
  *   get:
  *     tags:
  *       - Positions
- *     summary: Get positions by election
- *     description: Retrieve all positions for a specific election
+ *     summary: Get all positions
+ *     description: Retrieve all positions for the election
  *     security:
  *       - bearerAuth: []
- *     parameters:
- *       - name: electionId
- *         in: path
- *         required: true
- *         description: Election ID
- *         schema:
- *           type: string
- *           format: uuid
  *     responses:
  *       200:
  *         description: Positions retrieved successfully
@@ -82,10 +75,11 @@ router.use(requireECAccess);
  *       403:
  *         description: Forbidden - EC access required
  */
-router.get('/election/:electionId', async (req, res, next) => {
+router.get('/', async (req, res, next) => {
   try {
+    const electionId = await getSingleElectionId();
     const positions = await prisma.position.findMany({
-      where: { electionId: req.params.electionId },
+      where: { electionId },
       include: {
         candidates: {
           orderBy: { order: 'asc' },
@@ -232,20 +226,9 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const positionData = createPositionSchema.parse(req.body);
-    const { electionId } = req.body;
 
-    if (!electionId) {
-      throw new ValidationError('Election ID is required');
-    }
-
-    // Check if election exists and is editable
-    const election = await prisma.election.findUnique({
-      where: { id: electionId },
-    });
-
-    if (!election) {
-      throw new NotFoundError('Election not found');
-    }
+    // Get the single election
+    const election = await getSingleElection();
 
     if (['ACTIVE', 'ENDED'].includes(election.status)) {
       throw new ValidationError(
@@ -256,7 +239,7 @@ router.post('/', async (req, res, next) => {
     // Check for duplicate order within the election
     const existingPosition = await prisma.position.findFirst({
       where: {
-        electionId,
+        electionId: election.id,
         order: positionData.order,
       },
     });
@@ -270,7 +253,7 @@ router.post('/', async (req, res, next) => {
     const position = await prisma.position.create({
       data: {
         ...positionData,
-        electionId,
+        electionId: election.id,
       },
       include: {
         election: {
@@ -283,7 +266,7 @@ router.post('/', async (req, res, next) => {
     });
 
     logger.info(
-      `Position created: ${position.id} in election ${electionId}`
+      `Position created: ${position.id} in election ${election.id}`
     );
 
     res.status(201).json(position);
@@ -398,22 +381,14 @@ router.patch('/:id/toggle-active', async (req, res, next) => {
 // Reorder positions
 router.post('/reorder', async (req, res, next) => {
   try {
-    const { electionId, positions } = req.body;
+    const { positions } = req.body;
 
-    if (!electionId || !Array.isArray(positions)) {
-      throw new ValidationError(
-        'Election ID and positions array are required'
-      );
+    if (!Array.isArray(positions)) {
+      throw new ValidationError('Positions array is required');
     }
 
-    // Check if election exists and is editable
-    const election = await prisma.election.findUnique({
-      where: { id: electionId },
-    });
-
-    if (!election) {
-      throw new NotFoundError('Election not found');
-    }
+    // Get the single election
+    const election = await getSingleElection();
 
     if (['ACTIVE', 'ENDED'].includes(election.status)) {
       throw new ValidationError(
@@ -424,7 +399,7 @@ router.post('/reorder', async (req, res, next) => {
     // Validate positions belong to the election
     const existingPositions = await prisma.position.findMany({
       where: {
-        electionId,
+        electionId: election.id,
         id: { in: positions.map((p: any) => p.id) },
       },
     });
@@ -445,7 +420,7 @@ router.post('/reorder', async (req, res, next) => {
       )
     );
 
-    logger.info(`Positions reordered for election ${electionId}`);
+    logger.info(`Positions reordered for election ${election.id}`);
 
     res.json({ message: 'Positions reordered successfully' });
   } catch (error) {
