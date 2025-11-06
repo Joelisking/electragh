@@ -3,19 +3,25 @@ import { Election } from '@prisma/client';
 import { logger } from './logger';
 
 /**
- * Single Election System Utilities
+ * Permanent Single Election System
  *
- * This system is designed to manage a single election at a time.
- * The election is automatically created if it doesn't exist.
+ * This system maintains a single permanent election that always exists.
+ * Admins manage the election's visibility, state, candidates, and voters,
+ * but cannot delete or create new elections.
  */
 
 let cachedElection: Election | null = null;
 let lastFetchTime = 0;
 const CACHE_DURATION = 5000; // 5 seconds
 
+// Permanent election constants
+const PERMANENT_ELECTION_ID = 'permanent-election-001';
+const ELECTION_TITLE = 'School Leadership Election';
+const ELECTION_DESCRIPTION = 'Official election for student leadership positions';
+
 /**
- * Get or create the single election
- * Returns the single election instance, creating it if it doesn't exist
+ * Get the permanent election
+ * Returns the single permanent election instance, creating it if it doesn't exist
  */
 export async function getSingleElection(): Promise<Election> {
   // Check cache first
@@ -24,56 +30,82 @@ export async function getSingleElection(): Promise<Election> {
     return cachedElection;
   }
 
-  // Find the first election (should only be one)
+  // Find the permanent election
   let election = await prisma.election.findFirst({
     orderBy: { createdAt: 'asc' },
   });
 
-  // If no election exists, create a default one
+  // If no election exists, create the permanent one
   if (!election) {
-    logger.info('No election found, creating default election');
-
-    // Get the first admin user to be the creator
-    const adminUser = await prisma.user.findFirst({
-      where: {
-        role: { in: ['ADMIN', 'EC_MEMBER'] },
-      },
-    });
-
-    if (!adminUser) {
-      throw new Error('No admin user found to create election');
-    }
-
-    // Create default election with reasonable defaults
-    const now = new Date();
-    const startDate = new Date(now);
-    startDate.setHours(8, 0, 0, 0); // 8 AM today
-
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + 7); // 7 days from start
-    endDate.setHours(20, 0, 0, 0); // 8 PM
-
-    election = await prisma.election.create({
-      data: {
-        title: 'School Election',
-        description: 'Official school election for student leadership positions',
-        timezone: 'Africa/Accra',
-        startAt: startDate,
-        endAt: endDate,
-        status: 'DRAFT',
-        visibility: 'RESTRICTED',
-        allowAbstain: true,
-        createdBy: adminUser.id,
-      },
-    });
-
-    logger.info(`Created default election with ID: ${election.id}`);
+    election = await ensurePermanentElection();
   }
 
   // Update cache
   cachedElection = election;
   lastFetchTime = now;
 
+  return election;
+}
+
+/**
+ * Ensure the permanent election exists
+ * Creates the permanent election if it doesn't exist
+ */
+async function ensurePermanentElection(): Promise<Election> {
+  logger.info('Creating permanent election');
+
+  // Get or create the first admin user to be the creator
+  let adminUser = await prisma.user.findFirst({
+    where: {
+      role: { in: ['ADMIN', 'EC_MEMBER'] },
+    },
+  });
+
+  // If no admin exists, create a default one
+  if (!adminUser) {
+    logger.info('No admin user found, creating default admin');
+    const bcrypt = require('bcryptjs');
+    const defaultPassword = await bcrypt.hash('Admin@123', 10);
+
+    adminUser = await prisma.user.create({
+      data: {
+        name: 'System Administrator',
+        phone: '+233000000000',
+        role: 'ADMIN',
+        passwordHash: defaultPassword,
+      },
+    });
+    logger.info('Created default admin user');
+  }
+
+  // Create permanent election with sensible defaults
+  const now = new Date();
+
+  // Default to starting tomorrow at 8 AM
+  const startDate = new Date(now);
+  startDate.setDate(startDate.getDate() + 1);
+  startDate.setHours(8, 0, 0, 0);
+
+  // Default to ending 7 days later at 8 PM
+  const endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + 7);
+  endDate.setHours(20, 0, 0, 0);
+
+  const election = await prisma.election.create({
+    data: {
+      title: ELECTION_TITLE,
+      description: ELECTION_DESCRIPTION,
+      timezone: 'Africa/Accra',
+      startAt: startDate,
+      endAt: endDate,
+      status: 'DRAFT',
+      visibility: 'RESTRICTED',
+      allowAbstain: true,
+      createdBy: adminUser.id,
+    },
+  });
+
+  logger.info(`Created permanent election with ID: ${election.id}`);
   return election;
 }
 

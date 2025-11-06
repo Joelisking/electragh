@@ -1,3 +1,12 @@
+/**
+ * @deprecated These routes are deprecated in favor of the single election system.
+ * Use /api/election instead for the permanent election management.
+ *
+ * This file is kept for backwards compatibility but should not be used in new code.
+ * The system now operates with a single permanent election that is managed through
+ * the /api/election routes.
+ */
+
 import express from 'express';
 import { prisma } from '../server';
 import {
