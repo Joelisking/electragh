@@ -1,0 +1,308 @@
+// Ghana Election Platform Database Schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  phone         String   @unique
+  role          UserRole @default(ADMIN)
+  passwordHash  String
+  lastLoginAt   DateTime?
+  lastLoginIp   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  createdElections Election[] @relation("ElectionCreator")
+  disputesCreated  Dispute[]  @relation("DisputeCreator")
+  disputesAssigned Dispute[]  @relation("DisputeAssigned")
+  auditLogs        AuditLog[]
+
+  @@map("users")
+}
+
+model Voter {
+  id               String      @id @default(cuid())
+  fullName         String
+  phone            String      @unique
+  classYearGroup   String?
+  uniqueIdentifier String?
+  status           VoterStatus @default(INVITED)
+  
+  // OTP and security
+  lastOtpSentAt    DateTime?
+  lastOtpCode      String?
+  otpAttempts      Int         @default(0)
+  lastLoginIp      String?
+  lastLoginAt      DateTime?
+  
+  // Voting status
+  hasVoted         Boolean     @default(false)
+  votedAt          DateTime?
+  
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  // Relations
+  ballots          Ballot[]
+  smsMessages      SmsMessage[]
+  auditLogs        AuditLog[]
+
+  @@map("voters")
+}
+
+model Election {
+  id          String          @id @default(cuid())
+  title       String
+  description String?
+  timezone    String          @default("Africa/Accra")
+  startAt     DateTime
+  endAt       DateTime
+  status      ElectionStatus  @default(DRAFT)
+  visibility  ResultVisibility @default(RESTRICTED)
+  
+  // Configuration
+  allowAbstain Boolean @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String
+  
+  // Relations
+  creator              User                   @relation("ElectionCreator", fields: [createdBy], references: [id])
+  positions            Position[]
+  candidates           Candidate[]
+  ballots              Ballot[]
+  notificationSchedule NotificationSchedule[]
+  disputes             Dispute[]
+  auditLogs            AuditLog[]
+
+  @@map("elections")
+}
+
+model Position {
+  id         String  @id @default(cuid())
+  electionId String
+  name       String
+  order      Int
+  isActive   Boolean @default(true)
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  election   Election    @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidates Candidate[]
+  votes      Vote[]
+  disputes   Dispute[]
+
+  @@unique([electionId, order])
+  @@map("positions")
+}
+
+model Candidate {
+  id             String  @id @default(cuid())
+  electionId     String
+  positionId     String
+  fullName       String
+  classYearGroup String?
+  photoUrl       String?
+  bio            String?
+  order          Int     @default(0)
+  isActive       Boolean @default(true)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  election       Election   @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  position       Position   @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  votes          Vote[]
+  disputes       Dispute[]
+
+  @@unique([positionId, order])
+  @@map("candidates")
+}
+
+model Ballot {
+  id         String   @id @default(cuid())
+  electionId String
+  voterId    String
+  castAt     DateTime @default(now())
+  ipAddress  String?
+  userAgent  String?
+  
+  // Relations
+  election   Election @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  voter      Voter    @relation(fields: [voterId], references: [id], onDelete: Cascade)
+  votes      Vote[]
+
+  @@unique([electionId, voterId])
+  @@map("ballots")
+}
+
+model Vote {
+  id          String    @id @default(cuid())
+  ballotId    String
+  positionId  String
+  candidateId String?   // Null for abstain
+  castAt      DateTime  @default(now())
+  
+  // Relations
+  ballot      Ballot    @relation(fields: [ballotId], references: [id], onDelete: Cascade)
+  position    Position  @relation(fields: [positionId], references: [id], onDelete: Cascade)
+  candidate   Candidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+
+  @@unique([ballotId, positionId])
+  @@map("votes")
+}
+
+model NotificationSchedule {
+  id         String              @id @default(cuid())
+  electionId String
+  type       NotificationType
+  sendAt     DateTime
+  templateId String
+  sent       Boolean             @default(false)
+  sentAt     DateTime?
+  
+  createdAt  DateTime            @default(now())
+  
+  // Relations
+  election   Election            @relation(fields: [electionId], references: [id], onDelete: Cascade)
+
+  @@map("notification_schedules")
+}
+
+model SmsMessage {
+  id              String        @id @default(cuid())
+  voterId         String?
+  type            SmsType
+  to              String
+  body            String
+  provider        String
+  status          SmsStatus     @default(PENDING)
+  providerMsgId   String?
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  error           String?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  // Relations
+  voter           Voter?        @relation(fields: [voterId], references: [id], onDelete: SetNull)
+
+  @@map("sms_messages")
+}
+
+model Dispute {
+  id          String        @id @default(cuid())
+  electionId  String
+  positionId  String?
+  candidateId String?
+  description String
+  status      DisputeStatus @default(OPEN)
+  notes       String?
+  evidence    String?       // JSON array of file URLs
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  createdBy   String
+  assignedTo  String?
+  
+  // Relations
+  election    Election      @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  position    Position?     @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  candidate   Candidate?    @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  creator     User          @relation("DisputeCreator", fields: [createdBy], references: [id])
+  assignee    User?         @relation("DisputeAssigned", fields: [assignedTo], references: [id])
+
+  @@map("disputes")
+}
+
+model AuditLog {
+  id         String     @id @default(cuid())
+  action     String
+  resource   String
+  resourceId String?
+  userId     String?
+  voterId    String?
+  electionId String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  timestamp  DateTime   @default(now())
+  
+  // Relations
+  user       User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  voter      Voter?     @relation(fields: [voterId], references: [id], onDelete: SetNull)
+  election   Election?  @relation(fields: [electionId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  EC_MEMBER
+  ADVISORY_COUNCIL
+}
+
+enum VoterStatus {
+  INVITED
+  OTP_SENT
+  VERIFIED
+  VOTED
+}
+
+enum ElectionStatus {
+  DRAFT
+  SCHEDULED
+  ACTIVE
+  PAUSED
+  ENDED
+  ARCHIVED
+}
+
+enum ResultVisibility {
+  RESTRICTED    // Only EC members
+  PUBLIC        // Public after election ends
+  LIVE_PUBLIC   // Public during election
+}
+
+enum NotificationType {
+  VOTE_OPEN
+  VOTE_MIDWAY
+  VOTE_NEAR_END
+  VOTE_END
+}
+
+enum SmsType {
+  OTP_CODE
+  VOTE_REMINDER
+  VOTE_CONFIRMATION
+  ADMIN_NOTIFICATION
+}
+
+enum SmsStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  REJECTED
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}

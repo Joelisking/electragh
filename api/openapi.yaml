@@ -1,0 +1,866 @@
+openapi: 3.1.0
+info:
+    title: 'Voting API'
+    version: 1.0.0
+    description: 'Secure voting system API — Express, TypeScript, Prisma. Auto-generated from JSDoc comments.'
+servers:
+    -
+        url: 'http://localhost:4000'
+        description: 'Local development'
+    -
+        url: 'https://api.yourdomain.com'
+        description: Production
+components:
+    securitySchemes:
+        bearerAuth:
+            type: http
+            scheme: bearer
+            bearerFormat: JWT
+            description: 'Paste an **access token** here.'
+security:
+    -
+        bearerAuth: []
+tags:
+    -
+        name: Auth
+        description: 'Authentication endpoints'
+    -
+        name: Elections
+        description: 'Election management endpoints'
+    -
+        name: Positions
+        description: 'Position management endpoints'
+    -
+        name: Candidates
+        description: 'Candidate management endpoints'
+    -
+        name: Voters
+        description: 'Voter management endpoints'
+    -
+        name: Voting
+        description: 'Vote casting and management endpoints'
+    -
+        name: Results
+        description: 'Election results and analytics endpoints'
+    -
+        name: Disputes
+        description: 'Dispute management endpoints'
+    -
+        name: Admin
+        description: 'Administrative actions and management endpoints'
+paths:
+    /api/admin/dashboard:
+        get:
+            tags:
+                - Admin
+            summary: 'Get admin dashboard statistics'
+            description: 'Retrieve comprehensive statistics and metrics for the admin dashboard'
+            security:
+                -
+                    bearerAuth: []
+            responses:
+                '200':
+                    description: 'Dashboard statistics retrieved successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    statistics: {type: object, properties: {totalVoters: {type: number, description: 'Total number of registered voters'}, totalElections: {type: number, description: 'Total number of elections'}, activeElections: {type: number, description: 'Number of currently active elections'}, totalBallots: {type: number, description: 'Total number of ballots cast'}, turnoutRate: {type: number, description: 'Voter turnout percentage'}}}
+                                    voterStatusBreakdown: {type: object, additionalProperties: {type: number}, description: 'Breakdown of voters by status'}
+                                    smsStats: {type: object, additionalProperties: {type: number}, description: 'SMS message statistics by status'}
+                                    recentActivity: {type: array, items: {type: object, properties: {id: {type: string, format: uuid}, action: {type: string}, timestamp: {type: string, format: date-time}, user: {type: object, properties: {name: {type: string}, role: {type: string}}}, voter: {type: object, properties: {fullName: {type: string}}}}}}
+                '401':
+                    description: 'Unauthorized - Authentication required'
+    /api/auth/login:
+        post:
+            tags:
+                - Auth
+            summary: 'User login'
+            description: 'Authenticate user with email/phone and password'
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                email:
+                                    type: string
+                                    format: email
+                                    description: 'User''s email address'
+                                phone:
+                                    type: string
+                                    description: 'User''s phone number'
+                                password:
+                                    type: string
+                                    minLength: 6
+                                    description: 'User''s password'
+                            oneOf:
+                                -
+                                    required: [email, password]
+                                -
+                                    required: [phone, password]
+            responses:
+                '200':
+                    description: 'Login successful'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    user: {type: object, properties: {id: {type: string, format: uuid}, name: {type: string}, email: {type: string, format: email, nullable: true}, phone: {type: string, nullable: true}, role: {type: string}}}
+                                    accessToken: {type: string}
+                                    refreshToken: {type: string}
+                '400':
+                    description: 'Validation error'
+                '401':
+                    description: 'Authentication failed'
+                '429':
+                    description: 'Rate limit exceeded'
+    /api/auth/refresh:
+        post:
+            tags:
+                - Auth
+            summary: 'Refresh access token'
+            description: 'Get a new access token using a valid refresh token'
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - refreshToken
+                            properties:
+                                refreshToken:
+                                    type: string
+                                    description: 'Valid refresh token'
+            responses:
+                '200':
+                    description: 'Token refreshed successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    user: {type: object, properties: {id: {type: string, format: uuid}, name: {type: string}, email: {type: string, format: email, nullable: true}, phone: {type: string, nullable: true}, role: {type: string}}}
+                                    accessToken: {type: string}
+                                    refreshToken: {type: string}
+                '400':
+                    description: 'Validation error'
+                '401':
+                    description: 'Invalid refresh token'
+    /api/auth/register-admin:
+        post:
+            tags:
+                - Auth
+            summary: 'Register a new admin (Site Manager only)'
+            description: 'Create a new admin user account (requires SITE_MANAGER_KEY)'
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - name
+                                - phone
+                                - password
+                                - siteManagerKey
+                            properties:
+                                name:
+                                    type: string
+                                    minLength: 2
+                                    maxLength: 100
+                                phone:
+                                    type: string
+                                    description: 'Admin''s phone number'
+                                password:
+                                    type: string
+                                    minLength: 8
+                                role:
+                                    type: string
+                                    enum: [ADMIN, EC_MEMBER, ADVISORY_COUNCIL]
+                                    default: ADMIN
+                                siteManagerKey:
+                                    type: string
+                                    description: 'Site manager authentication key'
+            responses:
+                '201':
+                    description: 'Admin created successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message: {type: string}
+                                    admin: {type: object, properties: {id: {type: string}, name: {type: string}, phone: {type: string}, role: {type: string}}}
+                '400':
+                    description: 'Validation error or phone already exists'
+                '401':
+                    description: 'Invalid site manager key'
+    '/api/candidates/position/{positionId}':
+        get:
+            tags:
+                - Candidates
+            summary: 'Get candidates by position'
+            description: 'Retrieve all candidates for a specific position'
+            security:
+                -
+                    bearerAuth: []
+            parameters:
+                -
+                    name: positionId
+                    in: path
+                    required: true
+                    description: 'Position ID'
+                    schema:
+                        type: string
+                        format: uuid
+            responses:
+                '200':
+                    description: 'Candidates retrieved successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    type: object
+                                    properties: {id: {type: string, format: uuid}, fullName: {type: string}, email: {type: string, format: email}, phone: {type: string}, bio: {type: string}, manifesto: {type: string}, order: {type: number}, isActive: {type: boolean}, position: {type: object, properties: {id: {type: string, format: uuid}, name: {type: string}, election: {type: object, properties: {id: {type: string, format: uuid}, title: {type: string}, status: {type: string}}}}}, _count: {type: object, properties: {votes: {type: number}}}}
+                '401':
+                    description: 'Unauthorized - Authentication required'
+                '403':
+                    description: 'Forbidden - EC access required'
+    '/api/candidates/election/{electionId}':
+        get:
+            tags:
+                - Candidates
+            summary: 'Get candidates by election'
+            description: 'Retrieve all candidates for a specific election'
+            security:
+                -
+                    bearerAuth: []
+            parameters:
+                -
+                    name: electionId
+                    in: path
+                    required: true
+                    description: 'Election ID'
+                    schema:
+                        type: string
+                        format: uuid
+            responses:
+                '200':
+                    description: 'Candidates retrieved successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    type: object
+                                    properties: {id: {type: string, format: uuid}, fullName: {type: string}, email: {type: string, format: email}, phone: {type: string}, bio: {type: string}, manifesto: {type: string}, order: {type: number}, isActive: {type: boolean}, position: {type: object, properties: {id: {type: string, format: uuid}, name: {type: string}, order: {type: number}}}, _count: {type: object, properties: {votes: {type: number}}}}
+                '401':
+                    description: 'Unauthorized - Authentication required'
+                '403':
+                    description: 'Forbidden - EC access required'
+    /api/disputes:
+        get:
+            tags:
+                - Disputes
+            summary: 'Get all disputes'
+            description: 'Retrieve a paginated list of all disputes with optional filtering'
+            security:
+                -
+                    bearerAuth: []
+            parameters:
+                -
+                    name: status
+                    in: query
+                    description: 'Filter by dispute status'
+                    schema:
+                        type: string
+                -
+                    name: electionId
+                    in: query
+                    description: 'Filter by election ID'
+                    schema:
+                        type: string
+                        format: uuid
+                -
+                    name: page
+                    in: query
+                    description: 'Page number for pagination'
+                    schema:
+                        type: string
+                        default: '1'
+                -
+                    name: limit
+                    in: query
+                    description: 'Number of disputes per page'
+                    schema:
+                        type: string
+                        default: '20'
+            responses:
+                '200':
+                    description: 'Disputes retrieved successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    disputes: {type: array, items: {type: object, properties: {id: {type: string, format: uuid}, title: {type: string}, description: {type: string}, status: {type: string}, evidence: {type: string, nullable: true}, createdAt: {type: string, format: date-time}, election: {type: object, properties: {id: {type: string, format: uuid}, title: {type: string}, status: {type: string}}}, position: {type: object, properties: {id: {type: string, format: uuid}, name: {type: string}}}, candidate: {type: object, properties: {id: {type: string, format: uuid}, fullName: {type: string}, classYearGroup: {type: string}}}, creator: {type: object, properties: {id: {type: string, format: uuid}, name: {type: string}, role: {type: string}}}, assignee: {type: object, properties: {id: {type: string, format: uuid}, name: {type: string}, role: {type: string}}}}}}
+                                    pagination: {type: object, properties: {page: {type: number}, limit: {type: number}, total: {type: number}, pages: {type: number}}}
+                '401':
+                    description: 'Unauthorized - Authentication required'
+    /api/elections:
+        get:
+            tags:
+                - Elections
+            summary: 'Get all elections'
+            description: 'Retrieve a list of all elections with their positions and candidates'
+            security:
+                -
+                    bearerAuth: []
+            responses:
+                '200':
+                    description: 'List of elections retrieved successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    type: object
+                                    properties: {id: {type: string, format: uuid}, title: {type: string}, description: {type: string}, startDate: {type: string, format: date-time}, endDate: {type: string, format: date-time}, isActive: {type: boolean}, positions: {type: array, items: {type: object, properties: {id: {type: string, format: uuid}, name: {type: string}, candidates: {type: array, items: {type: object, properties: {id: {type: string, format: uuid}, fullName: {type: string}, isActive: {type: boolean}}}}}}}}
+                '401':
+                    description: 'Unauthorized - Authentication required'
+                '403':
+                    description: 'Forbidden - EC access required'
+    '/api/elections/{id}':
+        get:
+            tags:
+                - Elections
+            summary: 'Get single election'
+            description: 'Retrieve detailed information about a specific election'
+            security:
+                -
+                    bearerAuth: []
+            parameters:
+                -
+                    name: id
+                    in: path
+                    required: true
+                    description: 'Election ID'
+                    schema:
+                        type: string
+                        format: uuid
+            responses:
+                '200':
+                    description: 'Election details retrieved successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    id: {type: string, format: uuid}
+                                    title: {type: string}
+                                    description: {type: string}
+                                    startDate: {type: string, format: date-time}
+                                    endDate: {type: string, format: date-time}
+                                    isActive: {type: boolean}
+                                    positions: {type: array, items: {type: object, properties: {id: {type: string, format: uuid}, name: {type: string}, candidates: {type: array, items: {type: object, properties: {id: {type: string, format: uuid}, fullName: {type: string}, order: {type: number}}}}}}}
+                '401':
+                    description: 'Unauthorized - Authentication required'
+                '403':
+                    description: 'Forbidden - EC access required'
+                '404':
+                    description: 'Election not found'
+    '/api/positions/election/{electionId}':
+        get:
+            tags:
+                - Positions
+            summary: 'Get positions by election'
+            description: 'Retrieve all positions for a specific election'
+            security:
+                -
+                    bearerAuth: []
+            parameters:
+                -
+                    name: electionId
+                    in: path
+                    required: true
+                    description: 'Election ID'
+                    schema:
+                        type: string
+                        format: uuid
+            responses:
+                '200':
+                    description: 'Positions retrieved successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    type: object
+                                    properties: {id: {type: string, format: uuid}, name: {type: string}, description: {type: string}, order: {type: number}, maxCandidates: {type: number}, isActive: {type: boolean}, candidates: {type: array, items: {type: object, properties: {id: {type: string, format: uuid}, fullName: {type: string}, order: {type: number}}}}, _count: {type: object, properties: {votes: {type: number}}}}
+                '401':
+                    description: 'Unauthorized - Authentication required'
+                '403':
+                    description: 'Forbidden - EC access required'
+    '/api/positions/{id}':
+        get:
+            tags:
+                - Positions
+            summary: 'Get single position'
+            description: 'Retrieve detailed information about a specific position'
+            security:
+                -
+                    bearerAuth: []
+            parameters:
+                -
+                    name: id
+                    in: path
+                    required: true
+                    description: 'Position ID'
+                    schema:
+                        type: string
+                        format: uuid
+            responses:
+                '200':
+                    description: 'Position retrieved successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    id: {type: string, format: uuid}
+                                    name: {type: string}
+                                    description: {type: string}
+                                    order: {type: number}
+                                    maxCandidates: {type: number}
+                                    isActive: {type: boolean}
+                                    election: {type: object, properties: {id: {type: string, format: uuid}, title: {type: string}, status: {type: string}}}
+                                    candidates: {type: array, items: {type: object, properties: {id: {type: string, format: uuid}, fullName: {type: string}, order: {type: number}}}}
+                                    votes: {type: array, items: {type: object, properties: {id: {type: string, format: uuid}, candidate: {type: object, properties: {id: {type: string, format: uuid}, fullName: {type: string}}}}}}
+                '401':
+                    description: 'Unauthorized - Authentication required'
+                '403':
+                    description: 'Forbidden - EC access required'
+                '404':
+                    description: 'Position not found'
+    '/api/results/live/{electionId}':
+        get:
+            tags:
+                - Results
+            summary: 'Get live election results'
+            description: 'Retrieve live voting results for a specific election (EC access only)'
+            security:
+                -
+                    bearerAuth: []
+            parameters:
+                -
+                    name: electionId
+                    in: path
+                    required: true
+                    description: 'Election ID'
+                    schema:
+                        type: string
+                        format: uuid
+            responses:
+                '200':
+                    description: 'Live results retrieved successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    election: {type: object, properties: {id: {type: string, format: uuid}, title: {type: string}, status: {type: string}, positions: {type: array, items: {type: object, properties: {id: {type: string, format: uuid}, name: {type: string}, candidates: {type: array, items: {type: object, properties: {id: {type: string, format: uuid}, name: {type: string}, votes: {type: number}, percentage: {type: number}, classYearGroup: {type: string}, photoUrl: {type: string, nullable: true}}}}}}}}}
+                                    totalVoters: {type: number}
+                                    totalBallots: {type: number}
+                '401':
+                    description: 'Unauthorized - Authentication required'
+                '403':
+                    description: 'Forbidden - EC access required'
+                '404':
+                    description: 'Election not found'
+    '/api/results/public/{electionId}':
+        get:
+            tags:
+                - Results
+            summary: 'Get public election results'
+            description: 'Retrieve public voting results for a specific election (no authentication required)'
+            parameters:
+                -
+                    name: electionId
+                    in: path
+                    required: true
+                    description: 'Election ID'
+                    schema:
+                        type: string
+                        format: uuid
+            responses:
+                '200':
+                    description: 'Public results retrieved successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    election: {type: object, properties: {id: {type: string, format: uuid}, title: {type: string}, status: {type: string}, positions: {type: array, items: {type: object, properties: {id: {type: string, format: uuid}, name: {type: string}, candidates: {type: array, items: {type: object, properties: {id: {type: string, format: uuid}, name: {type: string}, votes: {type: number}, percentage: {type: number}, classYearGroup: {type: string}, photoUrl: {type: string, nullable: true}}}}}}}}}
+                                    totalVoters: {type: number}
+                                    totalBallots: {type: number}
+                                    turnoutRate: {type: number}
+                '404':
+                    description: 'Election not found'
+    /api/voters:
+        get:
+            tags:
+                - Voters
+            summary: 'Get all voters'
+            description: 'Retrieve a paginated list of voters with optional filtering and search'
+            security:
+                -
+                    bearerAuth: []
+            parameters:
+                -
+                    name: page
+                    in: query
+                    description: 'Page number for pagination'
+                    schema:
+                        type: string
+                        default: '1'
+                -
+                    name: limit
+                    in: query
+                    description: 'Number of voters per page'
+                    schema:
+                        type: string
+                        default: '50'
+                -
+                    name: search
+                    in: query
+                    description: 'Search term for name, phone, or unique identifier'
+                    schema:
+                        type: string
+                -
+                    name: status
+                    in: query
+                    description: 'Filter by voter status'
+                    schema:
+                        type: string
+                -
+                    name: classYearGroup
+                    in: query
+                    description: 'Filter by class year group'
+                    schema:
+                        type: string
+            responses:
+                '200':
+                    description: 'Voters retrieved successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    voters: {type: array, items: {type: object, properties: {id: {type: string, format: uuid}, fullName: {type: string}, phone: {type: string}, uniqueIdentifier: {type: string}, status: {type: string}, classYearGroup: {type: string}, isVerified: {type: boolean}, createdAt: {type: string, format: date-time}}}}
+                                    pagination: {type: object, properties: {page: {type: number}, limit: {type: number}, total: {type: number}, totalPages: {type: number}}}
+                '401':
+                    description: 'Unauthorized - Authentication required'
+                '403':
+                    description: 'Forbidden - EC access required'
+        post:
+            tags:
+                - Voters
+            summary: 'Create new voter'
+            description: 'Create a new voter with the provided information'
+            security:
+                -
+                    bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - fullName
+                                - phone
+                                - classYearGroup
+                                - uniqueIdentifier
+                            properties:
+                                fullName:
+                                    type: string
+                                    minLength: 2
+                                    description: 'Full name of the voter'
+                                phone:
+                                    type: string
+                                    description: 'Ghana phone number'
+                                classYearGroup:
+                                    type: string
+                                    description: 'Class year group of the voter'
+                                uniqueIdentifier:
+                                    type: string
+                                    description: 'Unique identifier for the voter'
+                                status:
+                                    type: string
+                                    description: 'Status of the voter'
+                                    default: active
+            responses:
+                '201':
+                    description: 'Voter created successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    id: {type: string, format: uuid}
+                                    fullName: {type: string}
+                                    phone: {type: string}
+                                    classYearGroup: {type: string}
+                                    uniqueIdentifier: {type: string}
+                                    status: {type: string}
+                                    createdAt: {type: string, format: date-time}
+                '400':
+                    description: 'Validation error'
+                '401':
+                    description: 'Unauthorized - Authentication required'
+                '403':
+                    description: 'Forbidden - EC access required'
+                '409':
+                    description: 'Conflict - Phone number already exists'
+    '/api/voters/{id}':
+        put:
+            tags:
+                - Voters
+            summary: 'Update voter'
+            description: 'Update an existing voter''s information'
+            security:
+                -
+                    bearerAuth: []
+            parameters:
+                -
+                    name: id
+                    in: path
+                    required: true
+                    description: 'Voter ID'
+                    schema:
+                        type: string
+                        format: uuid
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - fullName
+                                - phone
+                                - classYearGroup
+                                - uniqueIdentifier
+                            properties:
+                                fullName:
+                                    type: string
+                                    minLength: 2
+                                    description: 'Full name of the voter'
+                                phone:
+                                    type: string
+                                    description: 'Ghana phone number'
+                                classYearGroup:
+                                    type: string
+                                    description: 'Class year group of the voter'
+                                uniqueIdentifier:
+                                    type: string
+                                    description: 'Unique identifier for the voter'
+                                status:
+                                    type: string
+                                    description: 'Status of the voter'
+            responses:
+                '200':
+                    description: 'Voter updated successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    id: {type: string, format: uuid}
+                                    fullName: {type: string}
+                                    phone: {type: string}
+                                    classYearGroup: {type: string}
+                                    uniqueIdentifier: {type: string}
+                                    status: {type: string}
+                                    updatedAt: {type: string, format: date-time}
+                '400':
+                    description: 'Validation error'
+                '401':
+                    description: 'Unauthorized - Authentication required'
+                '403':
+                    description: 'Forbidden - EC access required'
+                '404':
+                    description: 'Voter not found'
+                '409':
+                    description: 'Conflict - Phone number already exists'
+        delete:
+            tags:
+                - Voters
+            summary: 'Delete voter'
+            description: 'Soft delete a voter (marks as inactive)'
+            security:
+                -
+                    bearerAuth: []
+            parameters:
+                -
+                    name: id
+                    in: path
+                    required: true
+                    description: 'Voter ID'
+                    schema:
+                        type: string
+                        format: uuid
+            responses:
+                '200':
+                    description: 'Voter deleted successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message: {type: string, example: 'Voter deleted successfully'}
+                '401':
+                    description: 'Unauthorized - Authentication required'
+                '403':
+                    description: 'Forbidden - EC access required'
+                '404':
+                    description: 'Voter not found'
+    /api/voting/request-otp:
+        post:
+            tags:
+                - Voting
+            summary: 'Request OTP for voting'
+            description: 'Request a one-time password to authenticate a voter for voting'
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - phone
+                            properties:
+                                phone:
+                                    type: string
+                                    description: 'Voter''s phone number'
+            responses:
+                '200':
+                    description: 'OTP sent successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message: {type: string, example: 'OTP sent successfully'}
+                                    phone: {type: string}
+                '400':
+                    description: 'Validation error'
+                '404':
+                    description: 'Voter not found'
+                '409':
+                    description: 'Voter has already voted'
+                '429':
+                    description: 'Rate limit exceeded'
+    /api/voting/verify-otp:
+        post:
+            tags:
+                - Voting
+            summary: 'Verify OTP for voting'
+            description: 'Verify the one-time password sent to the voter via SMS'
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - phone
+                                - code
+                            properties:
+                                phone:
+                                    type: string
+                                    description: 'Voter''s phone number in international format'
+                                    example: '+233240000000'
+                                code:
+                                    type: string
+                                    description: '6-digit OTP code'
+                                    example: '123456'
+            responses:
+                '200':
+                    description: 'Authentication successful'
+                '400':
+                    description: 'Validation error or invalid/expired OTP'
+                '404':
+                    description: 'Voter not found'
+    /api/voting/election:
+        get:
+            tags:
+                - Voting
+            summary: 'Get current election and voting status'
+            description: 'Get the current active election with positions and candidates, plus voter''s voting status'
+            security:
+                -
+                    bearerAuth: []
+            responses:
+                '200':
+                    description: 'Current election retrieved successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    election: {type: object, properties: {id: {type: string, format: uuid}, title: {type: string}, description: {type: string}, positions: {type: array, items: {type: object, properties: {id: {type: string}, name: {type: string}, order: {type: number}, candidates: {type: array, items: {type: object, properties: {id: {type: string}, fullName: {type: string}, classYearGroup: {type: string}, photoUrl: {type: string}, bio: {type: string}}}}}}}}}
+                                    votingStatus: {type: object, properties: {hasVoted: {type: boolean}, votedPositions: {type: array, items: {type: string}}, canVote: {type: boolean}}}
+                '401':
+                    description: 'Unauthorized - Authentication required'
+                '404':
+                    description: 'No active election found'
+    /api/voting/cast:
+        post:
+            tags:
+                - Voting
+            summary: 'Cast votes for all positions'
+            description: 'Submit votes for all election positions at once'
+            security:
+                -
+                    bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - votes
+                            properties:
+                                votes:
+                                    type: array
+                                    items: {type: object, required: [positionId], properties: {positionId: {type: string, format: uuid, description: 'Position ID to vote for'}, candidateId: {type: string, format: uuid, nullable: true, description: 'Candidate ID (null for abstain)'}}}
+            responses:
+                '200':
+                    description: 'Votes cast successfully'
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message: {type: string}
+                                    ballotId: {type: string, format: uuid}
+                                    votesCount: {type: number}
+                                    timestamp: {type: string, format: date-time}
+                '400':
+                    description: 'Validation error'
+                '401':
+                    description: 'Unauthorized - Authentication required'
+                '404':
+                    description: 'No active election found'
+                '409':
+                    description: 'Voter has already voted'
+                '429':
+                    description: 'Rate limit exceeded'

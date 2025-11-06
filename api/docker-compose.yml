@@ -1,0 +1,85 @@
+services:
+  api:
+    build: .
+    working_dir: /app
+    ports:
+      - '4000:4000'
+      - '5555:5555'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    env_file:
+      - .docker.env
+    environment:
+      - SEED_DATABASE=${SEED_DATABASE:-false}
+      - STORAGE_PROVIDER=${STORAGE_PROVIDER:-minio}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: voting
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d voting']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio123
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'curl',
+          '-f',
+          'http://localhost:9000/minio/health/live',
+        ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  createbuckets:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MC_HOST_minio: http://minio:9000
+    entrypoint: >
+      /bin/sh -c "
+      echo 'Waiting for MinIO to be ready...';
+      sleep 15;
+      echo 'Setting up MinIO alias...';
+      /usr/bin/mc alias set minio http://minio:9000 minio minio123;
+      echo 'Creating bucket...';
+      /usr/bin/mc mb minio/voting-candidate-images --ignore-existing;
+      echo 'Setting bucket policy...';
+      /usr/bin/mc anonymous set public minio/voting-candidate-images;
+      echo 'Bucket voting-candidate-images created successfully';
+      "
+
+volumes:
+  postgres_data:
+  minio_data:
