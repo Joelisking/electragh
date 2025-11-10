@@ -15,7 +15,7 @@ echo "✅ Database is ready!"
 # Run database migrations and generate Prisma client
 echo "🔄 Running database migrations..."
 npx prisma generate
-npx prisma db push
+npx prisma db push --accept-data-loss
 
 # Seed database if environment variable is set
 if [ "$SEED_DATABASE" = "true" ]; then

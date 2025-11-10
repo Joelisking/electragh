@@ -42,6 +42,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     }
     setIsLoading(false);
+
+    // Listen for global logout events (from 401 interceptor)
+    const handleGlobalLogout = () => {
+      setUser(null);
+    };
+
+    window.addEventListener('auth:logout', handleGlobalLogout);
+
+    return () => {
+      window.removeEventListener('auth:logout', handleGlobalLogout);
+    };
   }, []);
 
   const login = (phoneNumber: string, fullName?: string) => {

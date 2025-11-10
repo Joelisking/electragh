@@ -1,9 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
@@ -11,20 +16,21 @@ import {
   TableCell,
   TableHead,
   TableHeader,
-  TableRow
+  TableRow,
 } from '@/components/ui/table';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Users,
   Upload,
   Download,
-  Search,
   CheckCircle,
   XCircle,
   Clock,
@@ -32,6 +38,7 @@ import {
   UserPlus,
   Loader2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Voter {
   id: string;
@@ -55,7 +62,7 @@ interface VoterStats {
 
 const statusColors = {
   INVITED: 'bg-blue-100 text-blue-800',
-  VERIFIED: 'bg-green-100 text-green-800',
+  VERIFIED: 'bg-electra-primary-light text-electra-secondary',
   BLOCKED: 'bg-red-100 text-red-800',
 };
 
@@ -74,7 +81,20 @@ export default function VotersPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [classFilter, setClassFilter] = useState('all');
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+  // Dialog states
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [selectedVoter, setSelectedVoter] = useState<Voter | null>(null);
+  const [formData, setFormData] = useState({
+    fullName: '',
+    phone: '',
+    classYearGroup: '',
+    uniqueIdentifier: '',
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  const apiUrl =
+    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
   useEffect(() => {
     fetchVoters();
@@ -83,9 +103,12 @@ export default function VotersPage() {
 
   const fetchVoters = async () => {
     try {
-      const response = await fetch(`${apiUrl}/api/voters?limit=1000`, {
-        credentials: 'include',
-      });
+      const response = await fetch(
+        `${apiUrl}/api/voters?limit=1000`,
+        {
+          credentials: 'include',
+        }
+      );
 
       if (!response.ok) {
         throw new Error('Failed to fetch voters');
@@ -94,7 +117,9 @@ export default function VotersPage() {
       const data = await response.json();
       setVoters(data.voters);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(
+        err instanceof Error ? err.message : 'An error occurred'
+      );
       console.error('Error fetching voters:', err);
     } finally {
       setLoading(false);
@@ -119,40 +144,189 @@ export default function VotersPage() {
   };
 
   // Filter voters based on search and filters
-  const filteredVoters = voters.filter(voter => {
-    const matchesSearch = voter.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         voter.phone.includes(searchTerm) ||
-                         (voter.uniqueIdentifier && voter.uniqueIdentifier.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredVoters = voters.filter((voter) => {
+    const matchesSearch =
+      voter.fullName
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
+      voter.phone.includes(searchTerm) ||
+      (voter.uniqueIdentifier &&
+        voter.uniqueIdentifier
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()));
 
-    const matchesStatus = statusFilter === 'all' || voter.status === statusFilter;
-    const matchesClass = classFilter === 'all' || voter.classYearGroup === classFilter;
+    const matchesStatus =
+      statusFilter === 'all' || voter.status === statusFilter;
+    const matchesClass =
+      classFilter === 'all' || voter.classYearGroup === classFilter;
 
     return matchesSearch && matchesStatus && matchesClass;
   });
 
   // Get unique class years for filter
-  const classYears = [...new Set(voters.map(v => v.classYearGroup).filter(Boolean))].sort();
+  // const classYears = [
+  //   ...new Set(voters.map((v) => v.classYearGroup).filter(Boolean)),
+  // ].sort();
 
   const getStatusIcon = (status: string) => {
-    const Icon = statusIcons[status as keyof typeof statusIcons] || Clock;
+    const Icon =
+      statusIcons[status as keyof typeof statusIcons] || Clock;
     return <Icon className="w-4 h-4" />;
   };
 
   const getDisplayStatus = (voter: Voter) => {
     if (voter.hasVoted) return 'Voted';
-    return voter.status.charAt(0) + voter.status.slice(1).toLowerCase();
+    return (
+      voter.status.charAt(0) + voter.status.slice(1).toLowerCase()
+    );
   };
 
   const getStatusBadgeClass = (voter: Voter) => {
     if (voter.hasVoted) return 'bg-purple-100 text-purple-800';
-    return statusColors[voter.status as keyof typeof statusColors] || 'bg-gray-100 text-gray-800';
+    return (
+      statusColors[voter.status as keyof typeof statusColors] ||
+      'bg-gray-100 text-gray-800'
+    );
+  };
+
+  const handleEditVoter = (voter: Voter) => {
+    setSelectedVoter(voter);
+    setFormData({
+      fullName: voter.fullName,
+      phone: voter.phone,
+      classYearGroup: voter.classYearGroup || '',
+      uniqueIdentifier: voter.uniqueIdentifier || '',
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleAddVoter = () => {
+    setFormData({
+      fullName: '',
+      phone: '',
+      classYearGroup: '',
+      uniqueIdentifier: '',
+    });
+    setAddDialogOpen(true);
+  };
+
+  const handleSaveVoter = async () => {
+    if (!formData.fullName || !formData.phone) {
+      toast.error('Please fill in required fields');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const url = selectedVoter
+        ? `${apiUrl}/api/voters/${selectedVoter.id}`
+        : `${apiUrl}/api/voters`;
+      const method = selectedVoter ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save voter');
+      }
+
+      toast.success(
+        selectedVoter
+          ? 'Voter updated successfully'
+          : 'Voter added successfully'
+      );
+      setEditDialogOpen(false);
+      setAddDialogOpen(false);
+      fetchVoters();
+      fetchStats();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'An error occurred'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const response = await fetch(
+        `${apiUrl}/api/voters/export?format=csv`,
+        {
+          credentials: 'include',
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to export voters');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `voters-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Voters exported successfully');
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to export voters'
+      );
+    }
+  };
+
+  const handleImport = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.xlsx,.xls';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const response = await fetch(`${apiUrl}/api/voters/import`, {
+          method: 'POST',
+          credentials: 'include',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Failed to import voters');
+        }
+
+        const result = await response.json();
+        toast.success(`Successfully imported ${result.imported} voters`);
+        fetchVoters();
+        fetchStats();
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : 'Failed to import voters'
+        );
+      }
+    };
+    input.click();
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-green-600" />
+          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-electra-primary" />
           <p className="text-gray-600">Loading voters...</p>
         </div>
       </div>
@@ -163,7 +337,9 @@ export default function VotersPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <p className="text-red-600 font-semibold">Error loading voters</p>
+          <p className="text-red-600 font-semibold">
+            Error loading voters
+          </p>
           <p className="text-gray-600 mt-2">{error}</p>
         </div>
       </div>
@@ -171,192 +347,377 @@ export default function VotersPage() {
   }
 
   return (
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Voter Management</h1>
-            <p className="text-gray-600">Manage registered voters and their status</p>
-          </div>
-          <div className="flex space-x-2">
-            <Button variant="outline">
-              <Upload className="w-4 h-4 mr-2" />
-              Import CSV
-            </Button>
-            <Button variant="outline">
-              <Download className="w-4 h-4 mr-2" />
-              Export
-            </Button>
-            <Button>
-              <UserPlus className="w-4 h-4 mr-2" />
-              Add Voter
-            </Button>
-          </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Voter Management
+          </h1>
+          <p className="text-gray-600">
+            Manage registered voters and their status
+          </p>
         </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total Voters</p>
-                  <p className="text-3xl font-bold text-gray-900">{stats?.totalVoters || 0}</p>
-                </div>
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Users className="w-6 h-6 text-blue-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Verified</p>
-                  <p className="text-3xl font-bold text-green-600">{stats?.verifiedVoters || 0}</p>
-                </div>
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Voted</p>
-                  <p className="text-3xl font-bold text-purple-600">{stats?.votedCount || 0}</p>
-                </div>
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-purple-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Pending</p>
-                  <p className="text-3xl font-bold text-orange-600">{(stats?.totalVoters || 0) - (stats?.votedCount || 0)}</p>
-                </div>
-                <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                  <Clock className="w-6 h-6 text-yellow-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="flex space-x-2">
+          <Button
+            onClick={handleImport}
+            variant="outline"
+            className="border-electra-primary/30 text-electra-primary hover:bg-electra-primary-light/20 transition-all hover:scale-105 duration-200">
+            <Download className="w-4 h-4 mr-2" />
+            Import CSV
+          </Button>
+          <Button
+            onClick={handleExport}
+            variant="outline"
+            className="border-electra-primary/30 text-electra-primary hover:bg-electra-primary-light/20 transition-all hover:scale-105 duration-200">
+            <Upload className="w-4 h-4 mr-2" />
+            Export
+          </Button>
+          <Button
+            onClick={handleAddVoter}
+            className="bg-electra-primary hover:bg-electra-secondary transition-all shadow-md hover:shadow-lg hover:scale-105 duration-200">
+            <UserPlus className="w-4 h-4 mr-2" />
+            Add Voter
+          </Button>
         </div>
+      </div>
 
-        {/* Filters and Search */}
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <Input
-                    placeholder="Search by name, phone, or ID..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">
+                  Total Voters
+                </p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {stats?.totalVoters || 0}
+                </p>
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="INVITED">Invited</SelectItem>
-                  <SelectItem value="VERIFIED">Verified</SelectItem>
-                  <SelectItem value="BLOCKED">Blocked</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={classFilter} onValueChange={setClassFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by class" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Classes</SelectItem>
-                  {classYears.map(year => (
-                    <SelectItem key={year} value={year!}>{year}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <Users className="w-6 h-6 text-blue-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Voters Table */}
         <Card>
-          <CardHeader>
-            <CardTitle>Registered Voters ({filteredVoters.length})</CardTitle>
-            <CardDescription>
-              List of all registered voters and their current status
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Class/Year</TableHead>
-                  <TableHead>Unique ID</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Last Login</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredVoters.length > 0 ? (
-                  filteredVoters.map((voter) => (
-                    <TableRow key={voter.id}>
-                      <TableCell className="font-medium">{voter.fullName}</TableCell>
-                      <TableCell>{voter.phone}</TableCell>
-                      <TableCell>{voter.classYearGroup || '-'}</TableCell>
-                      <TableCell>{voter.uniqueIdentifier || '-'}</TableCell>
-                      <TableCell>
-                        <Badge className={`${getStatusBadgeClass(voter)} border-0`}>
-                          {getStatusIcon(voter.status)}
-                          <span className="ml-1">{getDisplayStatus(voter)}</span>
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {voter.lastLogin
-                          ? new Date(voter.lastLogin).toLocaleDateString()
-                          : 'Never'}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button variant="outline" size="sm">
-                            Edit
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            <Phone className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-gray-500 py-8">
-                      No voters found matching your criteria
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">
+                  Verified
+                </p>
+                <p className="text-3xl font-bold text-electra-primary">
+                  {stats?.verifiedVoters || 0}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-electra-primary-light rounded-lg flex items-center justify-center shadow-lg">
+                <CheckCircle className="w-6 h-6 text-electra-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">
+                  Voted
+                </p>
+                <p className="text-3xl font-bold text-purple-600">
+                  {stats?.votedCount || 0}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">
+                  Pending
+                </p>
+                <p className="text-3xl font-bold text-orange-600">
+                  {(stats?.totalVoters || 0) -
+                    (stats?.votedCount || 0)}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <Clock className="w-6 h-6 text-yellow-600" />
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Voters Table */}
+      <Card className="shadow-lg border-electra-primary/10">
+        <CardHeader className="bg-gradient-to-r from-electra-primary-light/5 to-electra-primary-light/10">
+          <CardTitle className="text-electra-secondary">
+            Registered Voters ({filteredVoters.length})
+          </CardTitle>
+          <CardDescription>
+            List of all registered voters and their current status
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Class/Year</TableHead>
+                <TableHead>Unique ID</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Last Login</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredVoters.length > 0 ? (
+                filteredVoters.map((voter) => (
+                  <TableRow key={voter.id}>
+                    <TableCell className="font-medium">
+                      {voter.fullName}
+                    </TableCell>
+                    <TableCell>{voter.phone}</TableCell>
+                    <TableCell>
+                      {voter.classYearGroup || '-'}
+                    </TableCell>
+                    <TableCell>
+                      {voter.uniqueIdentifier || '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        className={`${getStatusBadgeClass(
+                          voter
+                        )} border-0`}>
+                        {getStatusIcon(voter.status)}
+                        <span className="ml-1">
+                          {getDisplayStatus(voter)}
+                        </span>
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {voter.lastLogin
+                        ? new Date(
+                            voter.lastLogin
+                          ).toLocaleDateString()
+                        : 'Never'}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Button
+                          onClick={() => handleEditVoter(voter)}
+                          variant="outline"
+                          size="sm"
+                          className="border-electra-primary/30 text-electra-primary hover:bg-electra-primary-light/20 transition-all">
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-electra-primary/30 text-electra-primary hover:bg-electra-primary-light/20 transition-all">
+                          <Phone className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="text-center text-gray-500 py-8">
+                    No voters found matching your criteria
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Edit Voter Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Voter</DialogTitle>
+            <DialogDescription>
+              Update voter information
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-fullName">Full Name *</Label>
+              <Input
+                id="edit-fullName"
+                value={formData.fullName}
+                onChange={(e) =>
+                  setFormData({ ...formData, fullName: e.target.value })
+                }
+                placeholder="Enter full name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-phone">Phone Number *</Label>
+              <Input
+                id="edit-phone"
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
+                placeholder="Enter phone number"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-class">Class/Year Group</Label>
+              <Input
+                id="edit-class"
+                value={formData.classYearGroup}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    classYearGroup: e.target.value,
+                  })
+                }
+                placeholder="e.g., 2018"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-identifier">Unique Identifier</Label>
+              <Input
+                id="edit-identifier"
+                value={formData.uniqueIdentifier}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    uniqueIdentifier: e.target.value,
+                  })
+                }
+                placeholder="e.g., Student ID"
+              />
+            </div>
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setEditDialogOpen(false)}
+                disabled={submitting}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveVoter}
+                disabled={submitting}
+                className="bg-electra-primary hover:bg-electra-secondary">
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Voter Dialog */}
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Voter</DialogTitle>
+            <DialogDescription>
+              Register a new voter in the system
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="add-fullName">Full Name *</Label>
+              <Input
+                id="add-fullName"
+                value={formData.fullName}
+                onChange={(e) =>
+                  setFormData({ ...formData, fullName: e.target.value })
+                }
+                placeholder="Enter full name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-phone">Phone Number *</Label>
+              <Input
+                id="add-phone"
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
+                placeholder="Enter phone number"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-class">Class/Year Group</Label>
+              <Input
+                id="add-class"
+                value={formData.classYearGroup}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    classYearGroup: e.target.value,
+                  })
+                }
+                placeholder="e.g., 2018"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-identifier">Unique Identifier</Label>
+              <Input
+                id="add-identifier"
+                value={formData.uniqueIdentifier}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    uniqueIdentifier: e.target.value,
+                  })
+                }
+                placeholder="e.g., Student ID"
+              />
+            </div>
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => setAddDialogOpen(false)}
+                disabled={submitting}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveVoter}
+                disabled={submitting}
+                className="bg-electra-primary hover:bg-electra-secondary">
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Add Voter
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

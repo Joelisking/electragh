@@ -256,7 +256,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res, next) => {
           select: {
             id: true,
             name: true,
-            email: true,
+            phone: true,
             role: true,
           },
         },
@@ -264,7 +264,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res, next) => {
           select: {
             id: true,
             name: true,
-            email: true,
+            phone: true,
             role: true,
           },
         },
@@ -540,7 +540,7 @@ router.post(
             select: {
               id: true,
               name: true,
-              email: true,
+              phone: true,
               role: true,
             },
           },

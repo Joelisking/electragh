@@ -1,6 +1,20 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Settings, Clock, Play, Pause, Square } from 'lucide-react';
+import {
+  Calendar,
+  Settings,
+  Clock,
+  Play,
+  Pause,
+  Square,
+  Paperclip,
+} from 'lucide-react';
 import { ElectionControls } from './ElectionControls';
 import { VisibilitySelector } from './VisibilitySelector';
 
@@ -26,13 +40,14 @@ interface ElectionStatusCardProps {
 const statusColors = {
   DRAFT: 'bg-gray-100 text-gray-800',
   SCHEDULED: 'bg-blue-100 text-blue-800',
-  ACTIVE: 'bg-green-100 text-green-800',
+  ACTIVE:
+    'bg-electra-primary-light/50 text-electra-secondary border border-electra-primary/30',
   PAUSED: 'bg-yellow-100 text-yellow-800',
   ENDED: 'bg-red-100 text-red-800',
 };
 
 const statusIcons = {
-  DRAFT: Settings,
+  DRAFT: Paperclip,
   SCHEDULED: Clock,
   ACTIVE: Play,
   PAUSED: Pause,
@@ -46,7 +61,8 @@ export function ElectionStatusCard({
   onReset,
 }: ElectionStatusCardProps) {
   const getStatusIcon = (status: string) => {
-    const Icon = statusIcons[status as keyof typeof statusIcons] || Settings;
+    const Icon =
+      statusIcons[status as keyof typeof statusIcons] || Settings;
     return <Icon className="w-4 h-4" />;
   };
 
@@ -63,57 +79,92 @@ export function ElectionStatusCard({
   };
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="bg-gradient-to-br from-white to-gray-50/50 shadow-lg border-electra-primary/10 hover:shadow-xl transition-all duration-300">
+      <CardHeader className="bg-gradient-to-r from-electra-primary/5 to-electra-secondary/5 rounded-t-lg">
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-2xl">{election.title}</CardTitle>
-            <CardDescription className="text-base mt-2">
+            <CardTitle className="text-2xl text-electra-secondary">
+              {election.title}
+            </CardTitle>
+            <CardDescription className="text-base mt-2 text-gray-600">
               {election.description || 'No description provided'}
             </CardDescription>
           </div>
-          <Badge className={`${statusColors[election.status as keyof typeof statusColors]} border-0`}>
+          <Badge
+            className={`${
+              statusColors[
+                election.status as keyof typeof statusColors
+              ]
+            } shadow-md hover:shadow-lg transition-all duration-200`}>
             {getStatusIcon(election.status)}
-            <span className="ml-1 capitalize">{election.status.toLowerCase()}</span>
+            <span className="ml-1 capitalize font-medium">
+              {election.status.toLowerCase()}
+            </span>
           </Badge>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <CardContent className="pt-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Schedule and Settings */}
-          <div className="space-y-4">
-            <div>
-              <h4 className="font-medium text-gray-900 mb-2">Schedule</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center space-x-2">
-                  <Calendar className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600">Start:</span>
-                  <span className="font-medium">{formatDate(election.startAt)}</span>
+          <div className="space-y-6">
+            <div className="p-4 bg-gradient-to-br from-blue-50/50 to-blue-100/30 rounded-xl border border-blue-200/20">
+              <h4 className="font-semibold text-electra-secondary mb-3 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-electra-primary" />
+                Schedule
+              </h4>
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center space-x-3 p-2 bg-white/60 rounded-lg">
+                  <Calendar className="w-4 h-4 text-electra-primary" />
+                  <span className="text-gray-600 font-medium">
+                    Start:
+                  </span>
+                  <span className="font-semibold text-gray-800">
+                    {formatDate(election.startAt)}
+                  </span>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Calendar className="w-4 h-4 text-gray-400" />
-                  <span className="text-gray-600">End:</span>
-                  <span className="font-medium">{formatDate(election.endAt)}</span>
+                <div className="flex items-center space-x-3 p-2 bg-white/60 rounded-lg">
+                  <Calendar className="w-4 h-4 text-electra-primary" />
+                  <span className="text-gray-600 font-medium">
+                    End:
+                  </span>
+                  <span className="font-semibold text-gray-800">
+                    {formatDate(election.endAt)}
+                  </span>
                 </div>
               </div>
             </div>
-            <div>
-              <h4 className="font-medium text-gray-900 mb-2">Settings</h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-600">Timezone:</span>
-                  <span className="font-medium">{election.timezone}</span>
+            <div className="p-4 bg-gradient-to-br from-electra-primary/5 to-electra-secondary/5 rounded-xl border border-electra-primary/10">
+              <h4 className="font-semibold text-electra-secondary mb-3 flex items-center gap-2">
+                <Settings className="w-4 h-4 text-electra-primary" />
+                Settings
+              </h4>
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between p-2 bg-white/60 rounded-lg">
+                  <span className="text-gray-600 font-medium">
+                    Timezone:
+                  </span>
+                  <span className="font-semibold text-electra-primary">
+                    {election.timezone}
+                  </span>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-600">Results:</span>
+                <div className="flex items-center justify-between p-2 bg-white/60 rounded-lg">
+                  <span className="text-gray-600 font-medium">
+                    Results:
+                  </span>
                   <VisibilitySelector
                     value={election.visibility}
                     onChange={onVisibilityChange}
                   />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-gray-600">Allow Abstain:</span>
-                  <Badge variant="outline">{election.allowAbstain ? 'Yes' : 'No'}</Badge>
+                <div className="flex items-center justify-between p-2 bg-white/60 rounded-lg">
+                  <span className="text-gray-600 font-medium">
+                    Allow Abstain:
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className="border-electra-primary/30 text-electra-primary hover:bg-electra-primary/10 transition-colors duration-200">
+                    {election.allowAbstain ? 'Yes' : 'No'}
+                  </Badge>
                 </div>
               </div>
             </div>

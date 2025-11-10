@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Shield, Loader2, Eye, EyeOff } from 'lucide-react';
+import Image from 'next/image';
 import { toast } from 'sonner';
 
 export default function AdminLoginPage() {
@@ -55,18 +56,18 @@ export default function AdminLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-electra-primary-light via-white to-electra-secondary-light flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Shield className="w-8 h-8 text-white" />
+          <div className="w-20 h-20 bg-gradient-to-br from-electra-primary to-electra-secondary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <Image src="/logo.png" alt="ElectraGH" width={48} height={48} className="w-12 h-12" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Admin Login
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-electra-primary to-electra-secondary bg-clip-text text-transparent mb-2">
+            ElectraGH Admin
           </h1>
-          <p className="text-gray-600">
-            Access the election management dashboard
+          <p className="text-gray-600 font-medium">
+            Secure Administrative Access
           </p>
         </div>
 
@@ -122,7 +123,7 @@ export default function AdminLoginPage() {
 
               <Button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700"
+                className="w-full bg-electra-primary hover:bg-electra-secondary transition-all duration-200 shadow-lg hover:shadow-xl"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -150,7 +151,7 @@ export default function AdminLoginPage() {
         {/* Footer */}
         <div className="text-center mt-6">
           <p className="text-sm text-gray-500">
-            Ghana Election Platform Admin Portal
+            ElectraGH Administrative Portal
           </p>
         </div>
       </div>

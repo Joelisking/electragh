@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -57,26 +58,26 @@ export default function AdminNavigation() {
   const handleLogout = () => {};
 
   return (
-    <div className="bg-white border-b border-gray-200 shadow-sm">
+    <div className="bg-white/95 backdrop-blur-md border-b border-gray-200/50 shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo and Title */}
+          {/* ElectraGH Logo and Title */}
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
-              <Shield className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 bg-gradient-to-br from-electra-primary to-electra-secondary rounded-xl shadow-md flex items-center justify-center transform hover:scale-105 transition-transform">
+              <span className="text-lg font-bold text-white">E</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">
-                Election Control Center
+              <h1 className="text-xl font-bold bg-gradient-to-r from-electra-primary to-electra-secondary bg-clip-text text-transparent">
+                ElectraGH Control Center
               </h1>
-              <p className="text-sm text-gray-600">
-                AGOSA Elections - Electoral Commission
+              <p className="text-sm text-slate-600">
+                Digital Election Management System
               </p>
             </div>
           </div>
 
           {/* Navigation */}
-          <nav className="hidden md:flex space-x-8">
+          <nav className="hidden md:flex space-x-6">
             {navigationItems.map((item) => {
               const Icon = item.icon;
               const isActive = item.exact
@@ -88,10 +89,10 @@ export default function AdminNavigation() {
                   key={item.href}
                   onClick={() => router.push(item.href)}
                   className={cn(
-                    'flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                    'flex items-center space-x-2 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 transform hover:scale-105',
                     isActive
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                      ? 'bg-gradient-to-r from-electra-primary/20 to-electra-secondary/20 text-electra-primary shadow-md border border-electra-primary/30'
+                      : 'text-slate-600 hover:text-electra-primary hover:bg-electra-primary/10 hover:shadow-sm'
                   )}>
                   <Icon className="w-4 h-4" />
                   <span>{item.label}</span>
@@ -103,16 +104,17 @@ export default function AdminNavigation() {
           {/* User Info and Logout */}
           <div className="flex items-center space-x-4">
             <div className="text-right">
-              <p className="text-sm font-medium text-gray-900">JAK</p>
-              <p className="text-xs text-gray-500">Admin</p>
+              <p className="text-sm font-medium text-slate-900">JAK</p>
+              <p className="text-xs text-slate-500">Admin</p>
             </div>
-            <Badge className="bg-green-100 text-green-800 border-0">
+            <Badge className="bg-gradient-to-r from-electra-primary/20 to-electra-secondary/20 text-electra-primary border border-electra-primary/30 shadow-sm">
               <Activity className="w-3 h-3 mr-1" />
               Active
             </Badge>
             <Button
               variant="outline"
               size="sm"
+              className="border-electra-primary/30 text-electra-primary hover:bg-electra-primary hover:text-white transition-all duration-300 shadow-sm hover:shadow-md"
               onClick={handleLogout}>
               <LogOut className="w-4 h-4 mr-2" />
               Sign Out

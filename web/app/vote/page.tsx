@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,7 +29,10 @@ import {
   Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useGetApiVotingElection, usePostApiVotingCast } from '@/lib/api/voting/voting';
+import {
+  useGetApiVotingElection,
+  usePostApiVotingCast,
+} from '@/lib/api/voting/voting';
 
 interface Candidate {
   id: string;
@@ -78,7 +82,10 @@ export default function VotePage() {
       },
       onError: (error: any) => {
         console.error('Failed to cast votes:', error);
-        toast.error(error.response?.data?.message || 'Failed to submit votes. Please try again.');
+        toast.error(
+          error.response?.data?.message ||
+            'Failed to submit votes. Please try again.'
+        );
       },
     },
   });
@@ -108,9 +115,9 @@ export default function VotePage() {
   // Show loading while checking authentication
   if (!user?.isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-yellow-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-electra-primary-light/20 via-white to-yellow-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin text-green-600" />
+          <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin text-electra-primary" />
           <p className="text-gray-600">Checking authentication...</p>
         </div>
       </div>
@@ -119,9 +126,9 @@ export default function VotePage() {
 
   if (electionLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-yellow-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-electra-primary-light/20 via-white to-yellow-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin text-green-600" />
+          <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin text-electra-primary" />
           <p className="text-gray-600">Loading election data...</p>
         </div>
       </div>
@@ -130,11 +137,15 @@ export default function VotePage() {
 
   if (!electionData?.election) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-yellow-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-electra-primary-light/20 via-white to-yellow-50 flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-600" />
-          <h1 className="text-xl font-bold text-gray-900 mb-2">No Active Election</h1>
-          <p className="text-gray-600 mb-4">There is no active election at this time.</p>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">
+            No Active Election
+          </h1>
+          <p className="text-gray-600 mb-4">
+            There is no active election at this time.
+          </p>
           <Button onClick={() => router.push('/')}>Go Home</Button>
         </div>
       </div>
@@ -146,11 +157,15 @@ export default function VotePage() {
 
   if (positions.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-yellow-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-electra-primary-light/20 via-white to-yellow-50 flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 mx-auto mb-4 text-yellow-600" />
-          <h1 className="text-xl font-bold text-gray-900 mb-2">No Positions Available</h1>
-          <p className="text-gray-600 mb-4">There are no positions to vote for in this election.</p>
+          <h1 className="text-xl font-bold text-gray-900 mb-2">
+            No Positions Available
+          </h1>
+          <p className="text-gray-600 mb-4">
+            There are no positions to vote for in this election.
+          </p>
           <Button onClick={() => router.push('/')}>Go Home</Button>
         </div>
       </div>
@@ -159,18 +174,24 @@ export default function VotePage() {
 
   const currentPosition = positions[currentStep];
   const progress = ((currentStep + 1) / positions.length) * 100;
-  const canGoNext = votes[currentPosition.id] ? true : false; // All positions are optional in this implementation
+  const canGoNext = currentPosition?.id
+    ? votes[currentPosition.id]
+      ? true
+      : false
+    : false;
   const canGoBack = currentStep > 0;
   const isLastStep = currentStep === positions.length - 1;
 
   const handleVoteChange = (candidateId: string) => {
+    if (!currentPosition?.id) return;
     setVotes((prev) => ({
       ...prev,
-      [currentPosition.id]: candidateId,
+      [String(currentPosition.id)]: candidateId,
     }));
   };
 
   const handleSkip = () => {
+    if (!currentPosition?.id) return;
     // Remove vote for this position if it exists
     const newVotes = { ...votes };
     delete newVotes[currentPosition.id];
@@ -196,17 +217,19 @@ export default function VotePage() {
   const handleSubmitVotes = async () => {
     try {
       // Convert votes to the format expected by the API
-      const votesToSubmit = Object.entries(votes).map(([positionId, candidateId]) => ({
-        positionId,
-        candidateId,
-      }));
+      const votesToSubmit = Object.entries(votes).map(
+        ([positionId, candidateId]) => ({
+          positionId,
+          candidateId,
+        })
+      );
 
       // Also include abstain votes for positions without a selection
-      positions.forEach(position => {
-        if (!votes[position.id]) {
+      positions.forEach((position) => {
+        if (position.id && !votes[position.id]) {
           votesToSubmit.push({
             positionId: position.id,
-            candidateId: null, // null represents abstain
+            candidateId: '', // empty string represents abstain
           });
         }
       });
@@ -226,57 +249,62 @@ export default function VotePage() {
 
   if (showReview) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-yellow-50 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-electra-primary-light/20 via-white to-yellow-50 p-4 sm:p-6">
         <div className="max-w-2xl mx-auto">
           {/* Header */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-green-600 to-green-700 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-8 h-8 text-white" />
+          <div className="text-center mb-6 sm:mb-8">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-electra-primary to-electra-secondary rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-lg">
+              <CheckCircle className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 leading-tight">
               Review Your Votes
             </h1>
-            <p className="text-gray-600">
+            <p className="text-sm sm:text-base text-gray-600">
               Please review your selections before submitting
             </p>
           </div>
 
           {/* Review Cards */}
-          <div className="space-y-4 mb-8">
+          <div className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
             {positions.map((position) => {
+              if (!position.id) return null;
               const selectedCandidateId = votes[position.id];
-              const selectedCandidate = position.candidates.find(
+              const selectedCandidate = position.candidates?.find(
                 (c) => c.id === selectedCandidateId
               );
 
               return (
-                <Card key={position.id}>
-                  <CardHeader className="pb-3">
+                <Card
+                  key={position.id}
+                  className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
+                  <CardHeader className="pb-3 sm:pb-4 px-4 sm:px-6">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">
+                      <CardTitle className="text-base sm:text-lg leading-tight">
                         {position.name}
                       </CardTitle>
                     </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="px-4 sm:px-6 pt-0">
                     {selectedCandidate ? (
-                      <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                        <CheckCircle className="w-5 h-5 text-green-600" />
-                        <div>
-                          <p className="font-medium text-green-800">
+                      <div className="flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 bg-electra-primary-light/50 rounded-lg border border-electra-primary/30 shadow-sm">
+                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-electra-primary flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-electra-secondary text-sm sm:text-base leading-tight">
                             {selectedCandidate.fullName}
                           </p>
                           {selectedCandidate.classYearGroup && (
-                            <p className="text-sm text-green-600">
+                            <p className="text-xs sm:text-sm text-electra-primary mt-1">
                               {selectedCandidate.classYearGroup}
                             </p>
                           )}
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center space-x-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                        <SkipForward className="w-5 h-5 text-yellow-600" />
-                        <p className="text-yellow-800">Abstain</p>
+                      <div className="flex items-center space-x-3 sm:space-x-4 p-3 sm:p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <SkipForward className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600 flex-shrink-0" />
+                        <p className="text-yellow-800 text-sm sm:text-base font-medium">
+                          Abstain
+                        </p>
                       </div>
                     )}
                   </CardContent>
@@ -286,21 +314,21 @@ export default function VotePage() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <Button
               onClick={() => setShowReview(false)}
               variant="outline"
-              className="flex-1">
-              <ArrowLeft className="w-4 h-4 mr-2" />
+              className="flex-1 h-12 sm:h-11 text-sm sm:text-base font-medium touch-manipulation">
+              <ArrowLeft className="w-4 h-4 mr-2 flex-shrink-0" />
               Back to Voting
             </Button>
             <Button
               onClick={handleSubmitVotes}
               disabled={castVotesMutation.isPending}
-              className="flex-1 bg-green-600 hover:bg-green-700">
+              className="flex-1 h-12 sm:h-11 text-sm sm:text-base font-medium bg-electra-primary hover:bg-electra-secondary shadow-lg touch-manipulation">
               {castVotesMutation.isPending ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin flex-shrink-0" />
                   Submitting...
                 </>
               ) : (
@@ -314,85 +342,91 @@ export default function VotePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-yellow-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-electra-primary-light/20 via-white to-yellow-50 p-4 sm:p-6">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-green-700 rounded-lg flex items-center justify-center">
-              <Vote className="w-6 h-6 text-white" />
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-electra-primary to-electra-secondary rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+              <Vote className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">
-                AGOSA Elections
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
+                ElectraGH Elections
               </h1>
-              <p className="text-sm text-gray-600">
+              <p className="text-xs sm:text-sm text-gray-600 truncate">
                 Welcome, {user?.fullName || user?.phoneNumber}
               </p>
             </div>
           </div>
-          <Button onClick={handleLogout} variant="outline" size="sm">
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
+          <Button
+            onClick={handleLogout}
+            variant="outline"
+            size="sm"
+            className="h-9 px-3 text-sm flex-shrink-0">
+            <LogOut className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+            <span className="hidden sm:inline">Logout</span>
+            <span className="sm:hidden">Exit</span>
           </Button>
         </div>
 
         {/* Progress Bar */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">
+        <div className="mb-4 sm:mb-6">
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
+            <span className="text-sm sm:text-base font-medium text-gray-700">
               Step {currentStep + 1} of {positions.length}
             </span>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm sm:text-base text-gray-500">
               {Math.round(progress)}% Complete
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-gray-200 rounded-full h-2 sm:h-3 shadow-inner">
             <div
-              className="bg-green-600 h-2 rounded-full transition-all duration-300"
+              className="bg-electra-primary h-2 sm:h-3 rounded-full transition-all duration-300 shadow-sm"
               style={{ width: `${progress}%` }}
             />
           </div>
         </div>
 
         {/* Position Card */}
-        <Card className="mb-6">
-          <CardHeader className="text-center pb-4">
+        <Card className="mb-4 sm:mb-6 shadow-lg border-0 bg-white/70 backdrop-blur-sm">
+          <CardHeader className="text-center pb-3 sm:pb-4 px-4 sm:px-6">
             <div className="flex items-center justify-center space-x-2 mb-2">
-              <CardTitle className="text-2xl">
+              <CardTitle className="text-xl sm:text-2xl leading-tight">
                 {currentPosition.name}
               </CardTitle>
             </div>
-            <CardDescription className="text-lg">
+            <CardDescription className="text-base sm:text-lg text-gray-600">
               Vote for {currentPosition.name}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-4 sm:px-6">
             <RadioGroup
-              value={votes[currentPosition.id] || ''}
+              value={votes?.[currentPosition?.id as string] || ''}
               onValueChange={handleVoteChange}
-              className="space-y-3">
-              {currentPosition.candidates.map((candidate) => (
+              className="space-y-3 sm:space-y-4">
+              {currentPosition?.candidates?.map((candidate) => (
                 <div key={candidate.id}>
                   <RadioGroupItem
-                    value={candidate.id}
+                    value={candidate.id ?? ''}
                     id={candidate.id}
                     className="sr-only"
                   />
                   <Label
                     htmlFor={candidate.id}
-                    className="flex items-center space-x-3 p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                    <div className="w-4 h-4 border-2 border-gray-300 rounded-full flex items-center justify-center">
-                      {votes[currentPosition.id] === candidate.id && (
-                        <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                    className="flex items-center space-x-3 sm:space-x-4 p-4 sm:p-5 border-2 rounded-lg cursor-pointer hover:bg-electra-primary-light/20 transition-all duration-200 hover:shadow-md hover:border-electra-primary/50 touch-manipulation">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
+                      {votes[currentPosition.id as string] ===
+                        candidate.id && (
+                        <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 bg-electra-primary rounded-full"></div>
                       )}
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 text-base sm:text-lg leading-tight">
                         {candidate.fullName}
                       </p>
                       {candidate.classYearGroup && (
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm sm:text-base text-gray-600 mt-1">
                           {candidate.classYearGroup}
                         </p>
                       )}
@@ -402,11 +436,12 @@ export default function VotePage() {
               ))}
             </RadioGroup>
 
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center space-x-2 text-blue-800">
-                <AlertCircle className="w-4 h-4" />
-                <span className="text-sm">
-                  You can choose to abstain from voting for this position if you prefer.
+            <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-sm">
+              <div className="flex items-start space-x-2 sm:space-x-3 text-blue-800">
+                <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 mt-0.5" />
+                <span className="text-sm sm:text-base leading-relaxed">
+                  You can choose to abstain from voting for this
+                  position if you prefer.
                 </span>
               </div>
             </div>
@@ -414,30 +449,30 @@ export default function VotePage() {
         </Card>
 
         {/* Navigation Buttons */}
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <Button
             onClick={goToPrevious}
             disabled={!canGoBack}
             variant="outline"
-            className="flex-1">
-            <ArrowLeft className="w-4 h-4 mr-2" />
+            className="flex-1 h-12 sm:h-11 text-sm sm:text-base font-medium touch-manipulation">
+            <ArrowLeft className="w-4 h-4 mr-2 flex-shrink-0" />
             Previous
           </Button>
 
           <Button
             onClick={handleSkip}
             variant="outline"
-            className="flex-1">
-            <SkipForward className="w-4 h-4 mr-2" />
+            className="flex-1 h-12 sm:h-11 text-sm sm:text-base font-medium touch-manipulation">
+            <SkipForward className="w-4 h-4 mr-2 flex-shrink-0" />
             Abstain
           </Button>
 
           <Button
             onClick={goToNext}
             disabled={!canGoNext}
-            className="flex-1 bg-green-600 hover:bg-green-700">
+            className="flex-1 h-12 sm:h-11 text-sm sm:text-base font-medium bg-electra-primary hover:bg-electra-secondary shadow-lg touch-manipulation">
             {isLastStep ? 'Review Votes' : 'Next'}
-            <ArrowRight className="w-4 h-4 ml-2" />
+            <ArrowRight className="w-4 h-4 ml-2 flex-shrink-0" />
           </Button>
         </div>
       </div>

@@ -5,81 +5,88 @@
  * Secure voting system API — Express, TypeScript, Prisma. Auto-generated from JSDoc comments.
  * OpenAPI spec version: 1.0.0
  */
-import {
-  useQuery
-} from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query';
 import type {
   QueryFunction,
   QueryKey,
   UseQueryOptions,
-  UseQueryResult
-} from '@tanstack/react-query'
-import type {
-  GetApiAdminDashboard200
-} from '../votingAPI.schemas'
+  UseQueryResult,
+} from '@tanstack/react-query';
+import type { GetApiAdminDashboard200 } from '../votingAPI.schemas';
 import { mutator } from '../../api-client';
-
-
 
 /**
  * Retrieve comprehensive statistics and metrics for the admin dashboard
  * @summary Get admin dashboard statistics
  */
-export const getApiAdminDashboard = (
-    
- signal?: AbortSignal
-) => {
-      
-      
-      return mutator<GetApiAdminDashboard200>(
-      {url: `/api/admin/dashboard`, method: 'GET', signal
-    },
-      );
-    }
-  
+export const getApiAdminDashboard = (signal?: AbortSignal) => {
+  return mutator<GetApiAdminDashboard200>({
+    url: `/api/admin/dashboard`,
+    method: 'GET',
+    signal,
+  });
+};
 
 export const getGetApiAdminDashboardQueryKey = () => {
-    return [`/api/admin/dashboard`] as const;
-    }
+  return [`/api/admin/dashboard`] as const;
+};
 
-    
-export const getGetApiAdminDashboardQueryOptions = <TData = Awaited<ReturnType<typeof getApiAdminDashboard>>, TError = void>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAdminDashboard>>, TError, TData>>, }
-) => {
+export const getGetApiAdminDashboardQueryOptions = <
+  TData = Awaited<ReturnType<typeof getApiAdminDashboard>>,
+  TError = void
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<
+      Awaited<ReturnType<typeof getApiAdminDashboard>>,
+      TError,
+      TData
+    >
+  >;
+}) => {
+  const { query: queryOptions } = options ?? {};
 
-const {query: queryOptions} = options ?? {};
+  const queryKey =
+    queryOptions?.queryKey ?? getGetApiAdminDashboardQueryKey();
 
-  const queryKey =  queryOptions?.queryKey ?? getGetApiAdminDashboardQueryKey();
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getApiAdminDashboard>>
+  > = ({ signal }) => getApiAdminDashboard(signal);
 
-  
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getApiAdminDashboard>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiAdminDashboard>>> = ({ signal }) => getApiAdminDashboard(signal);
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiAdminDashboard>>, TError, TData> & { queryKey: QueryKey }
-}
-
-export type GetApiAdminDashboardQueryResult = NonNullable<Awaited<ReturnType<typeof getApiAdminDashboard>>>
-export type GetApiAdminDashboardQueryError = void
+export type GetApiAdminDashboardQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getApiAdminDashboard>>
+>;
+export type GetApiAdminDashboardQueryError = void;
 
 /**
  * @summary Get admin dashboard statistics
  */
-export const useGetApiAdminDashboard = <TData = Awaited<ReturnType<typeof getApiAdminDashboard>>, TError = void>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiAdminDashboard>>, TError, TData>>, }
+export const useGetApiAdminDashboard = <
+  TData = Awaited<ReturnType<typeof getApiAdminDashboard>>,
+  TError = void
+>(options?: {
+  query?: Partial<
+    UseQueryOptions<
+      Awaited<ReturnType<typeof getApiAdminDashboard>>,
+      TError,
+      TData
+    >
+  >;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+  const queryOptions = getGetApiAdminDashboardQueryOptions(options);
 
-  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } => {
+  const query = useQuery(queryOptions) as UseQueryResult<
+    TData,
+    TError
+  > & { queryKey: QueryKey };
 
-  const queryOptions = getGetApiAdminDashboardQueryOptions(options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
-
-  query.queryKey = queryOptions.queryKey ;
+  query.queryKey = queryOptions.queryKey;
 
   return query;
-}
-
-
-
+};

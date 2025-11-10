@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { LogOut, Clock, Menu } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 
 interface AdminHeaderProps {
   onMenuClick?: () => void;
@@ -35,10 +36,15 @@ export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      });
+      await fetch(
+        `${
+          process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+        }/api/auth/logout`,
+        {
+          method: 'POST',
+          credentials: 'include',
+        }
+      );
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -48,39 +54,47 @@ export function AdminHeader({ onMenuClick }: AdminHeaderProps) {
   };
 
   return (
-    <div className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+    <div className="h-16 bg-white border-b border-electra-primary/30 flex items-center justify-between px-6 shadow-sm">
       <div className="flex items-center space-x-4">
         {onMenuClick && (
           <Button
             variant="ghost"
             size="sm"
             onClick={onMenuClick}
-            className="lg:hidden"
-          >
+            className="lg:hidden">
             <Menu className="w-5 h-5" />
           </Button>
         )}
-        <div>
-          <h1 className="text-lg font-semibold text-gray-900">
-            Welcome back, {adminUser?.name || 'Admin'}
-          </h1>
-          <p className="text-xs text-gray-500">{adminUser?.role || 'Administrator'}</p>
+        <div className="flex items-center space-x-3">
+          {/* ElectraGH Logo placeholder - replace with actual logo path */}
+          <div className="w-8 h-8 bg-gradient-to-br from-electra-primary to-electra-secondary rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-sm">E</span>
+          </div>
+          <div>
+            <h1 className="text-lg font-semibold text-electra-secondary">
+              Welcome back, {adminUser?.name || 'Admin'}
+            </h1>
+            <p className="text-xs text-gray-500">
+              {adminUser?.role || 'ElectraGH Administrator'}
+            </p>
+          </div>
         </div>
       </div>
 
       <div className="flex items-center space-x-4">
         <Badge
           variant="outline"
-          className="bg-green-50 text-green-700 border-green-200"
-        >
+          className="bg-electra-primary-light/50 text-electra-primary border-electra-primary/30 shadow-sm">
           <Clock className="w-3 h-3 mr-1" />
-          {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          {currentTime.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
         </Badge>
         <Button
           onClick={handleLogout}
           variant="outline"
-          size="sm"
-        >
+          className="hover:text-white">
           <LogOut className="w-4 h-4 mr-2" />
           Logout
         </Button>

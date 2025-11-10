@@ -22,21 +22,53 @@ apiClient.interceptors.request.use(
   }
 );
 
-// // Add response interceptor to handle auth errors
-// apiClient.interceptors.response.use(
-//   (response) => response,
-//   (error) => {
-//     if (error.response?.status === 401) {
-//       // Clear auth data and redirect to login
-//       if (typeof window !== 'undefined') {
-//         localStorage.removeItem('voting-user');
-//         localStorage.removeItem('voting-token');
-//         window.location.href = '/login';
-//       }
-//     }
-//     return Promise.reject(error);
-//   }
-// );
+// Add response interceptor to handle auth errors
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      // Try to refresh the token
+      try {
+        await apiClient.post('/api/auth/refresh');
+        // If refresh succeeds, retry the original request
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        // If refresh fails, clear auth data and redirect
+        if (typeof window !== 'undefined') {
+          // Show user-friendly message
+          const toast = (window as any).toast;
+          if (toast) {
+            toast.error('Session expired. Please log in again.');
+          }
+
+          // Clear all auth-related localStorage items
+          localStorage.removeItem('voting-auth');
+          localStorage.removeItem('admin-user');
+
+          // Trigger auth context logout event
+          window.dispatchEvent(new CustomEvent('auth:logout'));
+
+          // Small delay to allow toast to show
+          setTimeout(() => {
+            // Redirect based on current path
+            const currentPath = window.location.pathname;
+            if (currentPath.startsWith('/admin')) {
+              window.location.href = '/admin/login';
+            } else {
+              window.location.href = '/auth';
+            }
+          }, 1000);
+        }
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 // Orval mutator function - this is what Orval expects
 export const mutator = async <T>(config: {
@@ -45,6 +77,7 @@ export const mutator = async <T>(config: {
   headers?: Record<string, string>;
   data?: any;
   params?: any;
+  signal?: AbortSignal;
 }): Promise<T> => {
   const response = await apiClient({
     url: config.url,
@@ -52,6 +85,7 @@ export const mutator = async <T>(config: {
     headers: config.headers,
     data: config.data,
     params: config.params,
+    signal: config.signal,
   });
   return response.data;
 };

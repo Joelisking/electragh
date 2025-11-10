@@ -198,7 +198,6 @@ router.get(
         select: {
           id: true,
           name: true,
-          email: true,
           phone: true,
           role: true,
           lastLoginAt: true,
@@ -224,19 +223,16 @@ router.post(
     try {
       const userData = createUserSchema.parse(req.body);
 
-      // Check for duplicate email or phone
+      // Check for duplicate phone
       const existingUser = await prisma.user.findFirst({
         where: {
-          OR: [
-            userData.email ? { email: userData.email } : {},
-            userData.phone ? { phone: userData.phone } : {},
-          ].filter((condition) => Object.keys(condition).length > 0),
+          phone: userData.phone,
         },
       });
 
       if (existingUser) {
         throw new ConflictError(
-          'A user with this email or phone already exists'
+          'A user with this phone already exists'
         );
       }
 
@@ -246,7 +242,6 @@ router.post(
       const user = await prisma.user.create({
         data: {
           name: userData.name,
-          email: userData.email,
           phone: userData.phone,
           role: userData.role,
           passwordHash,
@@ -254,7 +249,6 @@ router.post(
         select: {
           id: true,
           name: true,
-          email: true,
           phone: true,
           role: true,
           createdAt: true,
@@ -262,7 +256,7 @@ router.post(
       });
 
       logger.info(
-        `User created: ${user.id} (${user.email || user.phone}) by ${
+        `User created: ${user.id} (${user.phone}) by ${
           req.user!.id
         }`
       );
@@ -332,7 +326,6 @@ router.put(
         select: {
           id: true,
           name: true,
-          email: true,
           phone: true,
           role: true,
           updatedAt: true,
@@ -427,7 +420,7 @@ router.get(
             user: {
               select: {
                 name: true,
-                email: true,
+                phone: true,
                 role: true,
               },
             },

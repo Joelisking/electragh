@@ -20,7 +20,7 @@ export default function AdminDashboard() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-green-600" />
+          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-electra-primary" />
           <p className="text-gray-600">Loading dashboard...</p>
         </div>
       </div>
@@ -41,17 +41,29 @@ export default function AdminDashboard() {
     );
   }
 
-  const stats = dashboardData.statistics;
-  const recentActivity = dashboardData.recentActivity || [];
-  const smsStats = dashboardData.smsStats || {};
+  const stats = dashboardData.statistics || {};
+  const recentActivity = (dashboardData.recentActivity || [])
+    .filter(activity =>
+      activity?.id !== undefined &&
+      activity?.action !== undefined &&
+      activity?.timestamp !== undefined
+    )
+    .map(activity => ({
+      id: activity.id!,
+      action: activity.action!,
+      timestamp: activity.timestamp!,
+      user: activity.user?.name,
+    }));
 
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          Dashboard
+        </h1>
         <p className="text-gray-600 mt-1">
-          Overview of your election system
+          Overview of your ElectraGH election system
         </p>
       </div>
 
@@ -64,7 +76,7 @@ export default function AdminDashboard() {
       {/* Recent Activity and System Status */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <RecentActivity activities={recentActivity} />
-        <SystemStatus smsStats={smsStats} />
+        <SystemStatus />
       </div>
     </div>
   );

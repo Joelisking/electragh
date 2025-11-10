@@ -1,7 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ResultsHeader, ElectionOverview, PositionResults } from './components';
+import {
+  ResultsHeader,
+  ElectionOverview,
+  PositionResults,
+  LeadingCandidates,
+} from './components';
 import { Card, CardContent } from '@/components/ui/card';
 import { EyeOff } from 'lucide-react';
 
@@ -29,13 +34,16 @@ interface ElectionResults {
 }
 
 export default function ResultsPage() {
-  const [results, setResults] = useState<ElectionResults | null>(null);
+  const [results, setResults] = useState<ElectionResults | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [totalVoters, setTotalVoters] = useState(0);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+  const apiUrl =
+    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
   const fetchVoterCount = async () => {
     try {
@@ -66,7 +74,9 @@ export default function ResultsPage() {
       const data = await response.json();
       setResults(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(
+        err instanceof Error ? err.message : 'An error occurred'
+      );
       console.error('Error fetching results:', err);
     } finally {
       setLoading(false);
@@ -77,6 +87,7 @@ export default function ResultsPage() {
   useEffect(() => {
     fetchResults();
     fetchVoterCount();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleRefresh = () => {
@@ -100,11 +111,15 @@ export default function ResultsPage() {
       exportedAt: new Date().toISOString(),
     };
 
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: 'application/json',
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `election-results-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `election-results-${
+      new Date().toISOString().split('T')[0]
+    }.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -126,7 +141,9 @@ export default function ResultsPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <p className="text-red-600 font-semibold">Error loading results</p>
+          <p className="text-red-600 font-semibold">
+            Error loading results
+          </p>
           <p className="text-gray-600 mt-2">{error}</p>
         </div>
       </div>
@@ -137,7 +154,7 @@ export default function ResultsPage() {
     return (
       <div className="space-y-6">
         <ResultsHeader
-          refreshing={refreshing}
+          isRefreshing={refreshing}
           onRefresh={handleRefresh}
           onExport={exportResults}
         />
@@ -145,10 +162,13 @@ export default function ResultsPage() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-yellow-800">
               <EyeOff className="w-5 h-5" />
-              <span className="font-medium">No results available yet</span>
+              <span className="font-medium">
+                No results available yet
+              </span>
             </div>
             <p className="text-yellow-700 mt-1">
-              Results will appear here once voting begins and ballots are cast.
+              Results will appear here once voting begins and ballots
+              are cast.
             </p>
           </CardContent>
         </Card>
@@ -159,7 +179,7 @@ export default function ResultsPage() {
   return (
     <div className="space-y-6">
       <ResultsHeader
-        refreshing={refreshing}
+        isRefreshing={refreshing}
         onRefresh={handleRefresh}
         onExport={exportResults}
       />
@@ -170,6 +190,8 @@ export default function ResultsPage() {
         totalVoters={totalVoters}
         totalBallots={results.totalBallots}
       />
+
+      <LeadingCandidates positions={results.results} />
 
       <PositionResults positions={results.results} />
     </div>

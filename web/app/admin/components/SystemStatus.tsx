@@ -1,71 +1,27 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, MessageSquare } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 
-interface SmsStats {
-  [key: string]: number;
-}
-
-interface SystemStatusProps {
-  smsStats: SmsStats;
-}
-
-export function SystemStatus({ smsStats }: SystemStatusProps) {
-  const totalMessages = Object.values(smsStats).reduce((total, count) => total + count, 0);
-
+export function SystemStatus() {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>System Status</CardTitle>
-        <CardDescription>Current system health and alerts</CardDescription>
+    <Card className="bg-gradient-to-br from-white to-gray-50/50 shadow-lg border-gray-200/70 hover:shadow-xl transition-shadow duration-300">
+      <CardHeader className="bg-gradient-to-r from-electra-primary/5 to-electra-secondary/5 border-b border-gray-100">
+        <CardTitle className="text-lg font-semibold text-gray-800">System Status</CardTitle>
+        <CardDescription className="text-gray-600">Current system health and alerts</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
+      <CardContent className="pt-6">
+        <div className="space-y-5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              <span className="text-sm">Election System</span>
+            <div className="flex items-center space-x-3">
+              <div className="bg-electra-primary-light/50 p-2 rounded-lg">
+                <CheckCircle className="w-4 h-4 text-electra-primary" />
+              </div>
+              <span className="text-sm font-medium text-gray-700">Election System</span>
             </div>
-            <Badge variant="secondary" className="bg-green-100 text-green-800">
+            <Badge variant="secondary" className="bg-electra-primary-light text-electra-primary border-electra-primary/30 shadow-sm">
               Operational
             </Badge>
           </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="w-4 h-4 text-green-600" />
-              <span className="text-sm">SMS Service</span>
-            </div>
-            <Badge variant="secondary" className="bg-green-100 text-green-800">
-              Active
-            </Badge>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <MessageSquare className="w-4 h-4 text-blue-600" />
-              <span className="text-sm">SMS Messages</span>
-            </div>
-            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-              {totalMessages.toLocaleString()} sent
-            </Badge>
-          </div>
-
-          {Object.entries(smsStats).map(([status, count]) => (
-            <div key={status} className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    status === 'SENT' ? 'bg-green-500' :
-                    status === 'FAILED' ? 'bg-red-500' :
-                    'bg-yellow-500'
-                  }`}
-                />
-                <span className="text-sm capitalize">{status.toLowerCase()}</span>
-              </div>
-              <Badge variant="secondary">{count}</Badge>
-            </div>
-          ))}
         </div>
       </CardContent>
     </Card>

@@ -1,0 +1,98 @@
+# Production Docker Compose Configuration
+# Use this for production deployments with AWS S3
+
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - '4000:4000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env.production
+    environment:
+      # Database (override with production RDS/managed database)
+      - DATABASE_URL=${DATABASE_URL}
+      
+      # AWS S3 Configuration
+      - STORAGE_PROVIDER=s3
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_S3_BUCKET=${AWS_S3_BUCKET}
+      - AWS_REGION=${AWS_REGION}
+      - CDN_BASE_URL=${CDN_BASE_URL:-}
+      
+      # Application
+      - NODE_ENV=production
+      - PORT=4000
+      - FRONTEND_URL=${FRONTEND_URL}
+      
+      # Security
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - SITE_MANAGER_KEY=${SITE_MANAGER_KEY}
+      
+      # SMS Service
+      - SMS_PROVIDER=${SMS_PROVIDER:-arkesel}
+      - ARKESEL_API_KEY=${ARKESEL_API_KEY}
+      - ARKESEL_SENDER_ID=${ARKESEL_SENDER_ID}
+      - ARKESEL_SANDBOX=${ARKESEL_SANDBOX:-false}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_VERIFY_SERVICE_SID=${TWILIO_VERIFY_SERVICE_SID}
+      
+      # Database Seeding (only for first deployment)
+      - SEED_DATABASE=${SEED_DATABASE:-false}
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      
+      # Rate Limiting
+      - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-900000}
+      - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS:-100}
+    
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:4000/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: Include PostgreSQL for standalone deployments
+  # Remove this if using managed database (RDS, Cloud SQL, etc.)
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-voting}
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Optional: Add backup volume
+      - ./backups:/backups
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-voting}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres_data:
+    driver: local

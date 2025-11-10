@@ -1,313 +1,368 @@
 'use client';
 
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from '@/components/ui/avatar';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   UserCheck,
+  Award,
+  Users,
+  Loader2,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
   Plus,
-  Upload,
   Edit,
   Trash2,
-  Image as ImageIcon,
-  Users,
-  Award,
-  Eye,
 } from 'lucide-react';
 
-// Mock data - replace with real API calls
-const mockPositions = [
-  { id: '1', name: 'President', candidateCount: 2, order: 1 },
-  { id: '2', name: 'Vice President', candidateCount: 1, order: 2 },
-  { id: '3', name: 'Secretary', candidateCount: 3, order: 3 },
-  { id: '4', name: 'Treasurer', candidateCount: 2, order: 4 },
-  { id: '5', name: 'PRO', candidateCount: 4, order: 5 },
-];
+interface Candidate {
+  id: string;
+  fullName: string;
+  classYearGroup: string | null;
+  photoUrl: string | null;
+  bio: string | null;
+  order: number;
+  isActive: boolean;
+}
 
-const mockCandidates = [
-  {
-    id: '1',
-    fullName: 'Kwame Asante',
-    positionId: '1',
-    positionName: 'President',
-    classYearGroup: '2018',
-    photoUrl: '/api/placeholder/150/150',
-    bio: 'Experienced leader with strong background in student affairs.',
-    order: 1,
-    isActive: true,
-  },
-  {
-    id: '2',
-    fullName: 'Akosua Mensah',
-    positionId: '1',
-    positionName: 'President',
-    classYearGroup: '2019',
-    photoUrl: '/api/placeholder/150/150',
-    bio: 'Passionate about driving positive change and innovation.',
-    order: 2,
-    isActive: true,
-  },
-  {
-    id: '3',
-    fullName: 'John Smith',
-    positionId: '2',
-    positionName: 'Vice President',
-    classYearGroup: '2020',
-    photoUrl: '/api/placeholder/150/150',
-    bio: 'Committed to supporting the president and serving the community.',
-    order: 1,
-    isActive: true,
-  },
-  {
-    id: '4',
-    fullName: 'Ama Boateng',
-    positionId: '3',
-    positionName: 'Secretary',
-    classYearGroup: '2017',
-    photoUrl: '/api/placeholder/150/150',
-    bio: 'Detail-oriented with excellent organizational skills.',
-    order: 1,
-    isActive: true,
-  },
-];
+interface Position {
+  id: string;
+  name: string;
+  order: number;
+  isActive: boolean;
+  candidates: Candidate[];
+}
 
 export default function CandidatesPage() {
-  const [positions, setPositions] = useState(mockPositions);
-  const [candidates, setCandidates] = useState(mockCandidates);
-  const [selectedPosition, setSelectedPosition] = useState('all');
-  const [isAddPositionOpen, setIsAddPositionOpen] = useState(false);
-  const [isAddCandidateOpen, setIsAddCandidateOpen] = useState(false);
-  const [newPosition, setNewPosition] = useState({ name: '', order: positions.length + 1 });
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [expandedPositions, setExpandedPositions] = useState<
+    Set<string>
+  >(new Set());
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedPositionId, setSelectedPositionId] =
+    useState<string>('');
+  const [selectedCandidate, setSelectedCandidate] =
+    useState<Candidate | null>(null);
   const [newCandidate, setNewCandidate] = useState({
     fullName: '',
-    positionId: '',
     classYearGroup: '',
     bio: '',
     photoFile: null as File | null,
   });
+  const [addPositionDialogOpen, setAddPositionDialogOpen] = useState(false);
+  const [newPositionName, setNewPositionName] = useState('');
 
-  const filteredCandidates = selectedPosition === 'all'
-    ? candidates
-    : candidates.filter(c => c.positionId === selectedPosition);
+  const apiUrl =
+    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-  const handleAddPosition = () => {
-    if (!newPosition.name) return;
+  useEffect(() => {
+    fetchPositionsAndCandidates();
+  }, []);
 
-    const position = {
-      id: String(positions.length + 1),
-      name: newPosition.name,
-      candidateCount: 0,
-      order: newPosition.order,
-    };
+  const fetchPositionsAndCandidates = async () => {
+    try {
+      const response = await fetch(`${apiUrl}/api/election`, {
+        credentials: 'include',
+      });
 
-    setPositions([...positions, position]);
-    setNewPosition({ name: '', order: positions.length + 2 });
-    setIsAddPositionOpen(false);
+      if (!response.ok) {
+        throw new Error('Failed to fetch election data');
+      }
+
+      const data = await response.json();
+      setPositions(data.positions || []);
+
+      // Expand all positions by default
+      const allPositionIds = new Set<string>(
+        (data.positions || []).map((p: Position) => p.id)
+      );
+      setExpandedPositions(allPositionIds);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'An error occurred'
+      );
+      console.error('Error fetching data:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAddCandidate = () => {
-    if (!newCandidate.fullName || !newCandidate.positionId || !newCandidate.classYearGroup) return;
+  const togglePosition = (positionId: string) => {
+    const newExpanded = new Set(expandedPositions);
+    if (newExpanded.has(positionId)) {
+      newExpanded.delete(positionId);
+    } else {
+      newExpanded.add(positionId);
+    }
+    setExpandedPositions(newExpanded);
+  };
 
-    const position = positions.find(p => p.id === newCandidate.positionId);
-    const candidate = {
-      id: String(candidates.length + 1),
-      fullName: newCandidate.fullName,
-      positionId: newCandidate.positionId,
-      positionName: position?.name || '',
-      classYearGroup: newCandidate.classYearGroup,
-      photoUrl: '/api/placeholder/150/150', // Would be uploaded URL
-      bio: newCandidate.bio,
-      order: candidates.filter(c => c.positionId === newCandidate.positionId).length + 1,
-      isActive: true,
-    };
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
-    setCandidates([...candidates, candidate]);
+  const handleAddCandidate = (positionId: string) => {
+    setSelectedPositionId(positionId);
+    setAddDialogOpen(true);
+  };
 
-    // Update position candidate count
-    setPositions(positions.map(p =>
-      p.id === newCandidate.positionId
-        ? { ...p, candidateCount: p.candidateCount + 1 }
-        : p
-    ));
-
+  const handleEditCandidate = (candidate: Candidate) => {
+    setSelectedCandidate(candidate);
     setNewCandidate({
-      fullName: '',
-      positionId: '',
-      classYearGroup: '',
-      bio: '',
+      fullName: candidate.fullName,
+      classYearGroup: candidate.classYearGroup || '',
+      bio: candidate.bio || '',
       photoFile: null,
     });
-    setIsAddCandidateOpen(false);
+    setEditDialogOpen(true);
+  };
+
+  const handleAddPosition = async () => {
+    if (!newPositionName.trim()) {
+      alert('Please enter a position name');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/api/positions`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name: newPositionName }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to add position');
+      }
+
+      alert('Position added successfully');
+      setNewPositionName('');
+      setAddPositionDialogOpen(false);
+      fetchPositionsAndCandidates();
+    } catch (err) {
+      console.error('Error adding position:', err);
+      alert(err instanceof Error ? err.message : 'Failed to add position');
+    }
+  };
+
+  const handleDeletePosition = async (positionId: string) => {
+    if (!confirm('Are you sure you want to delete this position? All candidates under this position will also be deleted.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/api/positions/${positionId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete position');
+      }
+
+      alert('Position deleted successfully');
+      fetchPositionsAndCandidates();
+    } catch (err) {
+      console.error('Error deleting position:', err);
+      alert(err instanceof Error ? err.message : 'Failed to delete position');
+    }
+  };
+
+  const handleDeleteCandidate = async (candidateId: string) => {
+    if (!confirm('Are you sure you want to delete this candidate?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/api/candidates/${candidateId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete candidate');
+      }
+
+      alert('Candidate deleted successfully');
+      fetchPositionsAndCandidates();
+    } catch (err) {
+      console.error('Error deleting candidate:', err);
+      alert(err instanceof Error ? err.message : 'Failed to delete candidate');
+    }
+  };
+
+  const handleSaveCandidate = async () => {
+    if (!newCandidate.fullName || !newCandidate.classYearGroup) {
+      alert('Please fill in required fields');
+      return;
+    }
+
+    const isEditing = !!selectedCandidate;
+    if (!isEditing && !selectedPositionId) {
+      alert('No position selected');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('fullName', newCandidate.fullName);
+      formData.append('classYearGroup', newCandidate.classYearGroup);
+      if (!isEditing) {
+        formData.append('positionId', selectedPositionId);
+      }
+      if (newCandidate.bio) {
+        formData.append('bio', newCandidate.bio);
+      }
+      if (newCandidate.photoFile) {
+        formData.append('photo', newCandidate.photoFile);
+      }
+
+      const url = isEditing
+        ? `${apiUrl}/api/candidates/${selectedCandidate.id}`
+        : `${apiUrl}/api/candidates`;
+      const method = isEditing ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        credentials: 'include',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message ||
+            `Failed to ${isEditing ? 'update' : 'add'} candidate`
+        );
+      }
+
+      alert(`Candidate ${isEditing ? 'updated' : 'added'} successfully`);
+
+      // Reset form
+      setNewCandidate({
+        fullName: '',
+        classYearGroup: '',
+        bio: '',
+        photoFile: null,
+      });
+      setSelectedCandidate(null);
+      setAddDialogOpen(false);
+      setEditDialogOpen(false);
+
+      // Refresh data
+      fetchPositionsAndCandidates();
+    } catch (err) {
+      console.error(
+        `Error ${selectedCandidate ? 'updating' : 'adding'} candidate:`,
+        err
+      );
+      alert(
+        err instanceof Error
+          ? err.message
+          : `Failed to ${selectedCandidate ? 'update' : 'add'} candidate`
+      );
+    }
   };
 
   const stats = {
     totalPositions: positions.length,
-    totalCandidates: candidates.length,
-    activePositions: positions.filter(p => p.candidateCount > 0).length,
-    avgCandidatesPerPosition: positions.length > 0 ? (candidates.length / positions.length).toFixed(1) : '0',
+    totalCandidates: positions.reduce(
+      (sum, p) => sum + p.candidates.length,
+      0
+    ),
+    activePositions: positions.filter(
+      (p) => p.isActive && p.candidates.length > 0
+    ).length,
+    avgCandidatesPerPosition:
+      positions.length > 0
+        ? (
+            positions.reduce(
+              (sum, p) => sum + p.candidates.length,
+              0
+            ) / positions.length
+          ).toFixed(1)
+        : '0',
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-electra-primary" />
+          <p className="text-gray-600">Loading candidates...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-600" />
+          <p className="text-red-600 font-semibold">
+            Error loading candidates
+          </p>
+          <p className="text-gray-600 mt-2">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Candidate Management</h1>
-          <p className="text-gray-600">Manage election positions and candidates</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Candidate Management
+          </h1>
+          <p className="text-gray-600">
+            Manage election positions and their candidates
+          </p>
         </div>
-        <div className="flex space-x-2">
-          <Dialog open={isAddPositionOpen} onOpenChange={setIsAddPositionOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Award className="w-4 h-4 mr-2" />
-                Add Position
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Position</DialogTitle>
-                <DialogDescription>
-                  Create a new election position
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="positionName">Position Name</Label>
-                  <Input
-                    id="positionName"
-                    value={newPosition.name}
-                    onChange={(e) => setNewPosition({ ...newPosition, name: e.target.value })}
-                    placeholder="e.g., President, Secretary"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="positionOrder">Display Order</Label>
-                  <Input
-                    id="positionOrder"
-                    type="number"
-                    value={newPosition.order}
-                    onChange={(e) => setNewPosition({ ...newPosition, order: parseInt(e.target.value) })}
-                    placeholder="1"
-                  />
-                </div>
-                <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setIsAddPositionOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleAddPosition}>
-                    Add Position
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          <Dialog open={isAddCandidateOpen} onOpenChange={setIsAddCandidateOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Candidate
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Add New Candidate</DialogTitle>
-                <DialogDescription>
-                  Add a candidate to an election position
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="candidateName">Full Name</Label>
-                  <Input
-                    id="candidateName"
-                    value={newCandidate.fullName}
-                    onChange={(e) => setNewCandidate({ ...newCandidate, fullName: e.target.value })}
-                    placeholder="Enter full name"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="candidatePosition">Position</Label>
-                  <Select value={newCandidate.positionId} onValueChange={(value) => setNewCandidate({ ...newCandidate, positionId: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select position" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {positions.map(position => (
-                        <SelectItem key={position.id} value={position.id}>
-                          {position.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="candidateClass">Class/Year Group</Label>
-                  <Input
-                    id="candidateClass"
-                    value={newCandidate.classYearGroup}
-                    onChange={(e) => setNewCandidate({ ...newCandidate, classYearGroup: e.target.value })}
-                    placeholder="e.g., 2018"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="candidateBio">Bio (Optional)</Label>
-                  <Textarea
-                    id="candidateBio"
-                    value={newCandidate.bio}
-                    onChange={(e) => setNewCandidate({ ...newCandidate, bio: e.target.value })}
-                    placeholder="Brief candidate biography"
-                    rows={3}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="candidatePhoto">Photo</Label>
-                  <Input
-                    id="candidatePhoto"
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setNewCandidate({ ...newCandidate, photoFile: e.target.files?.[0] || null })}
-                  />
-                </div>
-                <div className="flex justify-end space-x-2">
-                  <Button variant="outline" onClick={() => setIsAddCandidateOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleAddCandidate}>
-                    Add Candidate
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+        <Button
+          onClick={() => setAddPositionDialogOpen(true)}
+          className="bg-electra-primary hover:bg-electra-secondary transition-all shadow-md hover:shadow-lg">
+          <Plus className="w-4 h-4 mr-2" />
+          Add Position
+        </Button>
       </div>
 
       {/* Stats Cards */}
@@ -316,8 +371,12 @@ export default function CandidatesPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Positions</p>
-                <p className="text-3xl font-bold text-gray-900">{stats.totalPositions}</p>
+                <p className="text-sm font-medium text-gray-600">
+                  Total Positions
+                </p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {stats.totalPositions}
+                </p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <Award className="w-6 h-6 text-blue-600" />
@@ -330,11 +389,15 @@ export default function CandidatesPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Candidates</p>
-                <p className="text-3xl font-bold text-green-600">{stats.totalCandidates}</p>
+                <p className="text-sm font-medium text-gray-600">
+                  Total Candidates
+                </p>
+                <p className="text-3xl font-bold text-electra-primary">
+                  {stats.totalCandidates}
+                </p>
               </div>
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <UserCheck className="w-6 h-6 text-green-600" />
+              <div className="w-12 h-12 bg-electra-primary-light rounded-lg flex items-center justify-center shadow-lg">
+                <UserCheck className="w-6 h-6 text-electra-primary" />
               </div>
             </div>
           </CardContent>
@@ -344,8 +407,12 @@ export default function CandidatesPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Active Positions</p>
-                <p className="text-3xl font-bold text-purple-600">{stats.activePositions}</p>
+                <p className="text-sm font-medium text-gray-600">
+                  Active Positions
+                </p>
+                <p className="text-3xl font-bold text-purple-600">
+                  {stats.activePositions}
+                </p>
               </div>
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                 <Users className="w-6 h-6 text-purple-600" />
@@ -358,8 +425,12 @@ export default function CandidatesPage() {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Avg per Position</p>
-                <p className="text-3xl font-bold text-yellow-600">{stats.avgCandidatesPerPosition}</p>
+                <p className="text-sm font-medium text-gray-600">
+                  Avg per Position
+                </p>
+                <p className="text-3xl font-bold text-yellow-600">
+                  {stats.avgCandidatesPerPosition}
+                </p>
               </div>
               <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
                 <Award className="w-6 h-6 text-yellow-600" />
@@ -369,120 +440,461 @@ export default function CandidatesPage() {
         </Card>
       </div>
 
-      {/* Positions Overview */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Election Positions</CardTitle>
-          <CardDescription>
-            Overview of all election positions and their candidates
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {positions.map((position) => (
-              <Card key={position.id} className="border border-gray-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold text-gray-900">{position.name}</h3>
-                    <Badge variant="outline">
-                      {position.candidateCount} candidates
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-3">Order: {position.order}</p>
-                  <div className="flex space-x-2">
-                    <Button size="sm" variant="outline" className="flex-1">
-                      <Edit className="w-4 h-4 mr-1" />
-                      Edit
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      <Eye className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </CardContent>
+      {/* Positions with Candidates */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-gray-900">
+            Positions & Candidates
+          </h2>
+          <div className="text-sm text-gray-600">
+            Click on a position to expand/collapse candidates
+          </div>
+        </div>
+
+        {positions.length === 0 ? (
+          <Card>
+            <CardContent className="p-12 text-center">
+              <Award className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-gray-600">
+                No positions or candidates found
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                Positions and candidates will appear here once they
+                are added to the election
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          positions.map((position) => {
+            const isExpanded = expandedPositions.has(position.id);
+            const candidateCount = position.candidates.length;
+
+            return (
+              <Card key={position.id} className="overflow-hidden">
+                {/* Position Header - Clickable */}
+                <div
+                  onClick={() => togglePosition(position.id)}
+                  className="cursor-pointer hover:bg-gray-50 transition-colors">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                          <Award className="w-6 h-6 text-blue-600" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-3">
+                            <CardTitle className="text-xl">
+                              {position.name}
+                            </CardTitle>
+                            <Badge
+                              variant="outline"
+                              className="bg-blue-50">
+                              Order: {position.order}
+                            </Badge>
+                            <Badge
+                              variant="outline"
+                              className={
+                                position.isActive
+                                  ? 'bg-electra-primary-light/50 text-electra-primary border-electra-primary/30'
+                                  : 'bg-gray-50'
+                              }>
+                              {position.isActive
+                                ? 'Active'
+                                : 'Inactive'}
+                            </Badge>
+                          </div>
+                          <CardDescription className="mt-1">
+                            {candidateCount}{' '}
+                            {candidateCount === 1
+                              ? 'candidate'
+                              : 'candidates'}{' '}
+                            running for this position
+                          </CardDescription>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddCandidate(position.id);
+                          }}
+                          className="bg-electra-primary text-white border-electra-primary hover:bg-electra-secondary transition-all shadow-md hover:shadow-lg">
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add Candidate
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeletePosition(position.id);
+                          }}
+                          className="border-red-300 text-red-600 hover:bg-red-50">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm">
+                          {isExpanded ? (
+                            <ChevronUp className="w-5 h-5" />
+                          ) : (
+                            <ChevronDown className="w-5 h-5" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                </div>
+
+                {/* Candidates List - Expandable */}
+                {isExpanded && (
+                  <CardContent className="pt-0">
+                    {candidateCount === 0 ? (
+                      <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                        <UserCheck className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                        <p className="text-sm">
+                          No candidates for this position yet
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {position.candidates
+                          .sort((a, b) => a.order - b.order)
+                          .map((candidate, index) => (
+                            <div
+                              key={candidate.id}
+                              className="flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg hover:from-electra-primary-light/10 hover:to-electra-primary-light/20 transition-all duration-300 shadow-sm hover:shadow-md border border-transparent hover:border-electra-primary/20">
+                              {/* Ranking Badge */}
+                              <div
+                                className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold ${
+                                  index === 0
+                                    ? 'bg-yellow-500'
+                                    : index === 1
+                                    ? 'bg-gray-400'
+                                    : index === 2
+                                    ? 'bg-orange-600'
+                                    : 'bg-blue-500'
+                                }`}>
+                                {index + 1}
+                              </div>
+
+                              {/* Avatar */}
+                              <Avatar className="w-12 h-12">
+                                <AvatarImage
+                                  src={
+                                    candidate.photoUrl || undefined
+                                  }
+                                />
+                                <AvatarFallback className="bg-blue-600 text-white">
+                                  {getInitials(candidate.fullName)}
+                                </AvatarFallback>
+                              </Avatar>
+
+                              {/* Candidate Info */}
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="font-semibold text-gray-900">
+                                    {candidate.fullName}
+                                  </h4>
+                                  {candidate.classYearGroup && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs">
+                                      Class of{' '}
+                                      {candidate.classYearGroup}
+                                    </Badge>
+                                  )}
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      candidate.isActive
+                                        ? 'bg-electra-primary-light/50 text-electra-primary border-electra-primary/30'
+                                        : 'bg-gray-100'
+                                    }>
+                                    {candidate.isActive
+                                      ? 'Active'
+                                      : 'Inactive'}
+                                  </Badge>
+                                </div>
+                                {candidate.bio && (
+                                  <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                                    {candidate.bio}
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Order Badge */}
+                              <Badge
+                                variant="outline"
+                                className="text-xs">
+                                Order: {candidate.order}
+                              </Badge>
+
+                              {/* Action Buttons */}
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditCandidate(candidate);
+                                  }}
+                                  className="border-electra-primary/30 text-electra-primary hover:bg-electra-primary-light/20">
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteCandidate(candidate.id);
+                                  }}
+                                  className="border-red-300 text-red-600 hover:bg-red-50">
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </CardContent>
+                )}
               </Card>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            );
+          })
+        )}
+      </div>
 
-      {/* Candidates Filter */}
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center space-x-4">
-            <Label>Filter by Position:</Label>
-            <Select value={selectedPosition} onValueChange={setSelectedPosition}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="All positions" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Positions</SelectItem>
-                {positions.map(position => (
-                  <SelectItem key={position.id} value={position.id}>
-                    {position.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {/* Add Candidate Dialog */}
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Add New Candidate</DialogTitle>
+            <DialogDescription>
+              Add a candidate to{' '}
+              {positions.find((p) => p.id === selectedPositionId)
+                ?.name || 'this position'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="fullName">Full Name *</Label>
+              <Input
+                id="fullName"
+                value={newCandidate.fullName}
+                onChange={(e) =>
+                  setNewCandidate({
+                    ...newCandidate,
+                    fullName: e.target.value,
+                  })
+                }
+                placeholder="Enter candidate's full name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="classYear">Class/Year Group *</Label>
+              <Input
+                id="classYear"
+                value={newCandidate.classYearGroup}
+                onChange={(e) =>
+                  setNewCandidate({
+                    ...newCandidate,
+                    classYearGroup: e.target.value,
+                  })
+                }
+                placeholder="e.g., 2018"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="bio">Biography (Optional)</Label>
+              <Textarea
+                id="bio"
+                value={newCandidate.bio}
+                onChange={(e) =>
+                  setNewCandidate({
+                    ...newCandidate,
+                    bio: e.target.value,
+                  })
+                }
+                placeholder="Brief candidate biography"
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="photo">Photo (Optional)</Label>
+              <Input
+                id="photo"
+                type="file"
+                accept="image/*"
+                onChange={(e) =>
+                  setNewCandidate({
+                    ...newCandidate,
+                    photoFile: e.target.files?.[0] || null,
+                  })
+                }
+              />
+              <p className="text-xs text-gray-500">
+                Upload a profile photo for the candidate
+              </p>
+            </div>
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setAddDialogOpen(false);
+                  setNewCandidate({
+                    fullName: '',
+                    classYearGroup: '',
+                    bio: '',
+                    photoFile: null,
+                  });
+                }}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveCandidate}
+                className="bg-electra-primary hover:bg-electra-secondary transition-all shadow-md hover:shadow-lg">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Candidate
+              </Button>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </DialogContent>
+      </Dialog>
 
-      {/* Candidates Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Candidates ({filteredCandidates.length})</CardTitle>
-          <CardDescription>
-            List of all candidates for {selectedPosition === 'all' ? 'all positions' : positions.find(p => p.id === selectedPosition)?.name}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Photo</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Position</TableHead>
-                <TableHead>Class/Year</TableHead>
-                <TableHead>Bio</TableHead>
-                <TableHead>Order</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredCandidates.map((candidate) => (
-                <TableRow key={candidate.id}>
-                  <TableCell>
-                    <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
-                      <ImageIcon className="w-6 h-6 text-gray-400" />
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-medium">{candidate.fullName}</TableCell>
-                  <TableCell>{candidate.positionName}</TableCell>
-                  <TableCell>{candidate.classYearGroup}</TableCell>
-                  <TableCell className="max-w-xs truncate">{candidate.bio || '-'}</TableCell>
-                  <TableCell>{candidate.order}</TableCell>
-                  <TableCell>
-                    <Badge className={candidate.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
-                      {candidate.isActive ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Button variant="outline" size="sm">
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {/* Edit Candidate Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Edit Candidate</DialogTitle>
+            <DialogDescription>
+              Update candidate information
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-fullName">Full Name *</Label>
+              <Input
+                id="edit-fullName"
+                value={newCandidate.fullName}
+                onChange={(e) =>
+                  setNewCandidate({
+                    ...newCandidate,
+                    fullName: e.target.value,
+                  })
+                }
+                placeholder="Enter candidate's full name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-classYear">Class/Year Group *</Label>
+              <Input
+                id="edit-classYear"
+                value={newCandidate.classYearGroup}
+                onChange={(e) =>
+                  setNewCandidate({
+                    ...newCandidate,
+                    classYearGroup: e.target.value,
+                  })
+                }
+                placeholder="e.g., 2018"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-bio">Biography (Optional)</Label>
+              <Textarea
+                id="edit-bio"
+                value={newCandidate.bio}
+                onChange={(e) =>
+                  setNewCandidate({
+                    ...newCandidate,
+                    bio: e.target.value,
+                  })
+                }
+                placeholder="Brief candidate biography"
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-photo">Photo (Optional)</Label>
+              <Input
+                id="edit-photo"
+                type="file"
+                accept="image/*"
+                onChange={(e) =>
+                  setNewCandidate({
+                    ...newCandidate,
+                    photoFile: e.target.files?.[0] || null,
+                  })
+                }
+              />
+              <p className="text-xs text-gray-500">
+                Upload a new profile photo (leave empty to keep current photo)
+              </p>
+            </div>
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditDialogOpen(false);
+                  setSelectedCandidate(null);
+                  setNewCandidate({
+                    fullName: '',
+                    classYearGroup: '',
+                    bio: '',
+                    photoFile: null,
+                  });
+                }}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveCandidate}
+                className="bg-electra-primary hover:bg-electra-secondary transition-all shadow-md hover:shadow-lg">
+                <Edit className="w-4 h-4 mr-2" />
+                Update Candidate
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Position Dialog */}
+      <Dialog open={addPositionDialogOpen} onOpenChange={setAddPositionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Position</DialogTitle>
+            <DialogDescription>
+              Create a new election position
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="positionName">Position Name *</Label>
+              <Input
+                id="positionName"
+                value={newPositionName}
+                onChange={(e) => setNewPositionName(e.target.value)}
+                placeholder="e.g., President, Vice President, Secretary"
+              />
+            </div>
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setAddPositionDialogOpen(false);
+                  setNewPositionName('');
+                }}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAddPosition}
+                className="bg-electra-primary hover:bg-electra-secondary transition-all shadow-md hover:shadow-lg">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Position
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

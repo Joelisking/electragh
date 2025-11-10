@@ -8,7 +8,7 @@ dotenv.config({ path: '.env.local' });
 async function testTwilioSms() {
   try {
     // Test international number
-    const testPhone = '+12603486805'; // Example US number
+    const testPhone = '+233506232324'; // Example Ghana number
     const testName = 'Joel';
     const testOtp = '123456';
 
@@ -17,20 +17,31 @@ async function testTwilioSms() {
 
     // Check configuration
     const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
-    logger.info(`Twilio Verify configured with Service SID: ${verifyServiceSid}`);
+    logger.info(
+      `Twilio Verify configured with Service SID: ${verifyServiceSid}`
+    );
 
     const smsService = createSmsService();
 
     // Test sending OTP
     logger.info('Sending OTP...');
-    const result = await smsService.sendOtp(testPhone, testOtp, testName);
+    const result = await smsService.sendOtp(
+      testPhone,
+      testOtp,
+      testName
+    );
 
     if (result.success) {
-      logger.info(`✅ OTP sent successfully! Message ID: ${result.messageId}`);
+      logger.info(
+        `✅ OTP sent successfully! Message ID: ${result.messageId}`
+      );
 
       // Test verification
       logger.info('Testing OTP verification...');
-      const verifyResult = await smsService.verifyOtp(testPhone, testOtp);
+      const verifyResult = await smsService.verifyOtp(
+        testPhone,
+        testOtp
+      );
 
       if (verifyResult) {
         logger.info('✅ OTP verification successful!');
@@ -40,7 +51,6 @@ async function testTwilioSms() {
     } else {
       logger.error(`❌ Failed to send OTP: ${result.error}`);
     }
-
   } catch (error) {
     logger.error('Error testing Twilio SMS:', error);
   }

@@ -24,51 +24,63 @@
     --card-foreground: 0 0% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
+    --primary: 220 100% 35%;
     --primary-foreground: 0 0% 98%;
     --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
+    --secondary-foreground: 220 100% 35%;
     --muted: 0 0% 96.1%;
     --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
+    --accent: 220 100% 35%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
+    --ring: 220 100% 35%;
+    --chart-1: 220 100% 35%;
+    --chart-2: 228 100% 12%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
+
+    /* ElectraGH Brand Colors */
+    --electra-primary: 220 100% 35%; /* #004aad */
+    --electra-secondary: 228 100% 12%; /* #050a30 */
+    --electra-primary-light: 220 100% 90%;
+    --electra-secondary-light: 228 100% 95%;
   }
   .dark {
-    --background: 0 0% 3.9%;
+    --background: 228 100% 5%;
     --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
+    --card: 228 100% 8%;
     --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
+    --popover: 228 100% 8%;
     --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
+    --primary: 220 100% 60%;
+    --primary-foreground: 228 100% 12%;
+    --secondary: 228 50% 20%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
+    --muted: 228 50% 20%;
     --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 220 100% 60%;
+    --accent-foreground: 228 100% 12%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
+    --border: 228 50% 20%;
+    --input: 228 50% 20%;
+    --ring: 220 100% 60%;
+    --chart-1: 220 100% 60%;
+    --chart-2: 228 100% 40%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
+
+    /* ElectraGH Brand Colors - Dark Mode */
+    --electra-primary: 220 100% 60%;
+    --electra-secondary: 228 100% 15%;
+    --electra-primary-light: 220 100% 20%;
+    --electra-secondary-light: 228 100% 10%;
   }
 }
 
@@ -78,5 +90,45 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  /* ElectraGH Brand Utility Classes */
+  .bg-electra-primary {
+    background-color: hsl(var(--electra-primary));
+  }
+  .bg-electra-secondary {
+    background-color: hsl(var(--electra-secondary));
+  }
+  .bg-electra-primary-light {
+    background-color: hsl(var(--electra-primary-light));
+  }
+  .bg-electra-secondary-light {
+    background-color: hsl(var(--electra-secondary-light));
+  }
+  .text-electra-primary {
+    color: hsl(var(--electra-primary));
+  }
+  .text-electra-secondary {
+    color: hsl(var(--electra-secondary));
+  }
+  .border-electra-primary {
+    border-color: hsl(var(--electra-primary));
+  }
+  .border-electra-secondary {
+    border-color: hsl(var(--electra-secondary));
+  }
+  .from-electra-primary {
+    --tw-gradient-from: hsl(var(--electra-primary)) var(--tw-gradient-from-position);
+  }
+  .to-electra-secondary {
+    --tw-gradient-to: hsl(var(--electra-secondary)) var(--tw-gradient-to-position);
+  }
+  .hover\:bg-electra-primary:hover {
+    background-color: hsl(var(--electra-primary));
+  }
+  .hover\:bg-electra-secondary:hover {
+    background-color: hsl(var(--electra-secondary));
   }
 }

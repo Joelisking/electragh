@@ -1,19 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Settings,
   Vote,
@@ -49,20 +48,30 @@ export default function SettingsPage() {
   const fetchElection = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('admin-token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/election`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `${
+          process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+        }/api/election`,
+        {
+          credentials: 'include',
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
         setElection(data);
         setTitle(data.title || '');
         setDescription(data.description || '');
-        setStartDate(data.startAt ? new Date(data.startAt).toISOString().slice(0, 16) : '');
-        setEndDate(data.endAt ? new Date(data.endAt).toISOString().slice(0, 16) : '');
+        setStartDate(
+          data.startAt
+            ? new Date(data.startAt).toISOString().slice(0, 16)
+            : ''
+        );
+        setEndDate(
+          data.endAt
+            ? new Date(data.endAt).toISOString().slice(0, 16)
+            : ''
+        );
         setVisibility(data.visibility || 'RESTRICTED');
       } else {
         toast.error('Failed to load election details');
@@ -78,20 +87,28 @@ export default function SettingsPage() {
   const handleUpdateSettings = async () => {
     setUpdating(true);
     try {
-      const token = localStorage.getItem('admin-token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/election/settings`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title,
-          description,
-          startAt: startDate ? new Date(startDate).toISOString() : undefined,
-          endAt: endDate ? new Date(endDate).toISOString() : undefined,
-        }),
-      });
+      const response = await fetch(
+        `${
+          process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+        }/api/election/settings`,
+        {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title,
+            description,
+            startAt: startDate
+              ? new Date(startDate).toISOString()
+              : undefined,
+            endAt: endDate
+              ? new Date(endDate).toISOString()
+              : undefined,
+          }),
+        }
+      );
 
       if (response.ok) {
         toast.success('Election settings updated successfully');
@@ -110,15 +127,19 @@ export default function SettingsPage() {
 
   const handleUpdateVisibility = async (newVisibility: string) => {
     try {
-      const token = localStorage.getItem('admin-token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/election/visibility`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ visibility: newVisibility }),
-      });
+      const response = await fetch(
+        `${
+          process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+        }/api/election/visibility`,
+        {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ visibility: newVisibility }),
+        }
+      );
 
       if (response.ok) {
         toast.success('Visibility updated successfully');
@@ -133,13 +154,18 @@ export default function SettingsPage() {
     }
   };
 
-  const handleStateAction = async (action: 'start' | 'pause' | 'resume' | 'end' | 'reset') => {
+  const handleStateAction = async (
+    action: 'start' | 'pause' | 'resume' | 'end' | 'reset'
+  ) => {
     const confirmMessages = {
-      start: 'Start the election? Voters will be able to cast their votes.',
-      pause: 'Pause the election? Voting will be temporarily suspended.',
+      start:
+        'Start the election? Voters will be able to cast their votes.',
+      pause:
+        'Pause the election? Voting will be temporarily suspended.',
       resume: 'Resume the election? Voting will continue.',
       end: 'End the election? This will close voting permanently.',
-      reset: 'Reset the election? This will clear all votes and prepare for a new election cycle. This action cannot be undone!',
+      reset:
+        'Reset the election? This will clear all votes and prepare for a new election cycle. This action cannot be undone!',
     };
 
     if (!confirm(confirmMessages[action])) {
@@ -147,13 +173,15 @@ export default function SettingsPage() {
     }
 
     try {
-      const token = localStorage.getItem('admin-token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/election/${action}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `${
+          process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+        }/api/election/${action}`,
+        {
+          method: 'POST',
+          credentials: 'include',
+        }
+      );
 
       if (response.ok) {
         const data = await response.json();
@@ -173,13 +201,18 @@ export default function SettingsPage() {
     const statusConfig = {
       DRAFT: { color: 'bg-gray-100 text-gray-800', icon: Clock },
       SCHEDULED: { color: 'bg-blue-100 text-blue-800', icon: Clock },
-      ACTIVE: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
+      ACTIVE: {
+        color: 'bg-electra-primary-light text-electra-secondary',
+        icon: CheckCircle,
+      },
       PAUSED: { color: 'bg-yellow-100 text-yellow-800', icon: Pause },
       ENDED: { color: 'bg-red-100 text-red-800', icon: Square },
       ARCHIVED: { color: 'bg-gray-100 text-gray-800', icon: Clock },
     };
 
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.DRAFT;
+    const config =
+      statusConfig[status as keyof typeof statusConfig] ||
+      statusConfig.DRAFT;
     const Icon = config.icon;
 
     return (
@@ -195,7 +228,9 @@ export default function SettingsPage() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-blue-600" />
-          <p className="text-gray-600">Loading election settings...</p>
+          <p className="text-gray-600">
+            Loading election settings...
+          </p>
         </div>
       </div>
     );
@@ -220,8 +255,12 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Election Settings</h1>
-          <p className="text-gray-600">Manage election configuration and state</p>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Election Settings
+          </h1>
+          <p className="text-gray-600">
+            Manage election configuration and state
+          </p>
         </div>
         <div className="flex items-center space-x-3">
           {getStatusBadge(election.status)}
@@ -229,9 +268,9 @@ export default function SettingsPage() {
       </div>
 
       {/* Election State Controls */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
+      <Card className="shadow-lg border-electra-primary/10">
+        <CardHeader className="bg-gradient-to-r from-electra-primary-light/5 to-electra-primary-light/10">
+          <CardTitle className="flex items-center text-electra-secondary">
             <Vote className="w-5 h-5 mr-2" />
             Election State Controls
           </CardTitle>
@@ -243,9 +282,11 @@ export default function SettingsPage() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <Button
               onClick={() => handleStateAction('start')}
-              disabled={election.status === 'ACTIVE' || election.status === 'ENDED'}
-              className="bg-green-600 hover:bg-green-700"
-            >
+              disabled={
+                election.status === 'ACTIVE' ||
+                election.status === 'ENDED'
+              }
+              className="bg-electra-primary hover:bg-electra-secondary transition-all shadow-md hover:shadow-lg">
               <Play className="w-4 h-4 mr-2" />
               Start
             </Button>
@@ -253,7 +294,7 @@ export default function SettingsPage() {
               onClick={() => handleStateAction('pause')}
               disabled={election.status !== 'ACTIVE'}
               variant="outline"
-            >
+              className="border-electra-primary/30 text-electra-primary hover:bg-electra-primary-light/20 transition-all shadow-md hover:shadow-lg disabled:opacity-50">
               <Pause className="w-4 h-4 mr-2" />
               Pause
             </Button>
@@ -261,16 +302,18 @@ export default function SettingsPage() {
               onClick={() => handleStateAction('resume')}
               disabled={election.status !== 'PAUSED'}
               variant="outline"
-            >
+              className="border-electra-primary/30 text-electra-primary hover:bg-electra-primary-light/20 transition-all shadow-md hover:shadow-lg disabled:opacity-50">
               <Play className="w-4 h-4 mr-2" />
               Resume
             </Button>
             <Button
               onClick={() => handleStateAction('end')}
-              disabled={election.status !== 'ACTIVE' && election.status !== 'PAUSED'}
+              disabled={
+                election.status !== 'ACTIVE' &&
+                election.status !== 'PAUSED'
+              }
               variant="outline"
-              className="border-red-300 text-red-600 hover:bg-red-50"
-            >
+              className="border-red-300 text-red-600 hover:bg-red-50 transition-all shadow-md hover:shadow-lg disabled:opacity-50">
               <Square className="w-4 h-4 mr-2" />
               End
             </Button>
@@ -278,8 +321,7 @@ export default function SettingsPage() {
               onClick={() => handleStateAction('reset')}
               disabled={election.status === 'ACTIVE'}
               variant="outline"
-              className="border-orange-300 text-orange-600 hover:bg-orange-50"
-            >
+              className="border-orange-300 text-orange-600 hover:bg-orange-50 transition-all shadow-md hover:shadow-lg disabled:opacity-50">
               <RotateCcw className="w-4 h-4 mr-2" />
               Reset
             </Button>
@@ -288,9 +330,9 @@ export default function SettingsPage() {
       </Card>
 
       {/* Visibility Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
+      <Card className="shadow-lg border-electra-primary/10">
+        <CardHeader className="bg-gradient-to-r from-electra-primary-light/5 to-electra-primary-light/10">
+          <CardTitle className="flex items-center text-electra-secondary">
             <Eye className="w-5 h-5 mr-2" />
             Results Visibility
           </CardTitle>
@@ -303,35 +345,56 @@ export default function SettingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Button
                 onClick={() => handleUpdateVisibility('RESTRICTED')}
-                variant={visibility === 'RESTRICTED' ? 'default' : 'outline'}
-                className="h-auto py-4 flex flex-col items-center space-y-2"
-              >
+                variant={
+                  visibility === 'RESTRICTED' ? 'default' : 'outline'
+                }
+                className={`h-auto py-4 flex flex-col items-center space-y-2 transition-all shadow-md hover:shadow-lg ${
+                  visibility === 'RESTRICTED'
+                    ? 'bg-electra-primary hover:bg-electra-secondary text-white'
+                    : 'border-electra-primary/30 text-electra-primary hover:bg-electra-primary-light/20'
+                }`}>
                 <EyeOff className="w-6 h-6" />
                 <div className="text-center">
                   <div className="font-semibold">Restricted</div>
-                  <div className="text-xs opacity-75">EC members only</div>
+                  <div className="text-xs opacity-75">
+                    EC members only
+                  </div>
                 </div>
               </Button>
               <Button
                 onClick={() => handleUpdateVisibility('PUBLIC')}
-                variant={visibility === 'PUBLIC' ? 'default' : 'outline'}
-                className="h-auto py-4 flex flex-col items-center space-y-2"
-              >
+                variant={
+                  visibility === 'PUBLIC' ? 'default' : 'outline'
+                }
+                className={`h-auto py-4 flex flex-col items-center space-y-2 transition-all shadow-md hover:shadow-lg ${
+                  visibility === 'PUBLIC'
+                    ? 'bg-electra-primary hover:bg-electra-secondary text-white'
+                    : 'border-electra-primary/30 text-electra-primary hover:bg-electra-primary-light/20'
+                }`}>
                 <Eye className="w-6 h-6" />
                 <div className="text-center">
                   <div className="font-semibold">Public</div>
-                  <div className="text-xs opacity-75">Public after end</div>
+                  <div className="text-xs opacity-75">
+                    Public after end
+                  </div>
                 </div>
               </Button>
               <Button
                 onClick={() => handleUpdateVisibility('LIVE_PUBLIC')}
-                variant={visibility === 'LIVE_PUBLIC' ? 'default' : 'outline'}
-                className="h-auto py-4 flex flex-col items-center space-y-2"
-              >
+                variant={
+                  visibility === 'LIVE_PUBLIC' ? 'default' : 'outline'
+                }
+                className={`h-auto py-4 flex flex-col items-center space-y-2 transition-all shadow-md hover:shadow-lg ${
+                  visibility === 'LIVE_PUBLIC'
+                    ? 'bg-electra-primary hover:bg-electra-secondary text-white'
+                    : 'border-electra-primary/30 text-electra-primary hover:bg-electra-primary-light/20'
+                }`}>
                 <Eye className="w-6 h-6" />
                 <div className="text-center">
                   <div className="font-semibold">Live Public</div>
-                  <div className="text-xs opacity-75">Public during voting</div>
+                  <div className="text-xs opacity-75">
+                    Public during voting
+                  </div>
                 </div>
               </Button>
             </div>
@@ -340,9 +403,9 @@ export default function SettingsPage() {
       </Card>
 
       {/* Election Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
+      <Card className="shadow-lg border-electra-primary/10">
+        <CardHeader className="bg-gradient-to-r from-electra-primary-light/5 to-electra-primary-light/10">
+          <CardTitle className="flex items-center text-electra-secondary">
             <Settings className="w-5 h-5 mr-2" />
             Election Details
           </CardTitle>
@@ -381,7 +444,10 @@ export default function SettingsPage() {
                   type="datetime-local"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  disabled={election.status === 'ACTIVE' || election.status === 'ENDED'}
+                  disabled={
+                    election.status === 'ACTIVE' ||
+                    election.status === 'ENDED'
+                  }
                 />
               </div>
 
@@ -392,25 +458,36 @@ export default function SettingsPage() {
                   type="datetime-local"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  disabled={election.status === 'ACTIVE' || election.status === 'ENDED'}
+                  disabled={
+                    election.status === 'ACTIVE' ||
+                    election.status === 'ENDED'
+                  }
                 />
               </div>
             </div>
 
-            {election.status === 'ACTIVE' || election.status === 'ENDED' ? (
+            {election.status === 'ACTIVE' ||
+            election.status === 'ENDED' ? (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start space-x-3">
                 <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
                 <div className="text-sm text-yellow-800">
-                  Date changes are not allowed while the election is active or ended.
+                  Date changes are not allowed while the election is
+                  active or ended.
                 </div>
               </div>
             ) : null}
 
             <div className="flex justify-end space-x-3">
-              <Button variant="outline" onClick={fetchElection}>
+              <Button
+                variant="outline"
+                onClick={fetchElection}
+                className="border-electra-primary/30 text-electra-primary hover:bg-electra-primary-light/20 transition-all">
                 Cancel
               </Button>
-              <Button onClick={handleUpdateSettings} disabled={updating}>
+              <Button
+                onClick={handleUpdateSettings}
+                disabled={updating}
+                className="bg-electra-primary hover:bg-electra-secondary transition-all shadow-md hover:shadow-lg disabled:opacity-50">
                 {updating ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -426,9 +503,11 @@ export default function SettingsPage() {
       </Card>
 
       {/* Election Statistics */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Current Election Statistics</CardTitle>
+      <Card className="shadow-lg border-electra-primary/10">
+        <CardHeader className="bg-gradient-to-r from-electra-primary-light/5 to-electra-primary-light/10">
+          <CardTitle className="text-electra-secondary">
+            Current Election Statistics
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -439,8 +518,12 @@ export default function SettingsPage() {
               <div className="text-sm text-gray-600">Positions</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-green-600">
-                {election.positions?.reduce((sum: number, p: any) => sum + (p.candidates?.length || 0), 0) || 0}
+              <div className="text-3xl font-bold text-electra-primary">
+                {election.positions?.reduce(
+                  (sum: number, p: any) =>
+                    sum + (p.candidates?.length || 0),
+                  0
+                ) || 0}
               </div>
               <div className="text-sm text-gray-600">Candidates</div>
             </div>
