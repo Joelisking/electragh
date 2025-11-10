@@ -641,17 +641,59 @@ router.post(
           );
         }
 
-        // Convert to object format
-        const headers = jsonData[0].map((h: string) =>
-          h.toLowerCase().replace(/\s+/g, '_')
-        );
-        votersData = jsonData.slice(1).map((row) => {
+        // Extract year group from first row (e.g., "1966·Year-Group-Members")
+        let yearGroup = '';
+        if (jsonData[0] && jsonData[0][0]) {
+          const firstCell = String(jsonData[0][0]);
+          const yearMatch = firstCell.match(/(\d{4})/);
+          if (yearMatch) {
+            yearGroup = yearMatch[1];
+          }
+        }
+
+        // Find the actual header row (contains "Code/Reference", "Name", or "Phone")
+        let headerRowIndex = -1;
+        for (let i = 0; i < Math.min(5, jsonData.length); i++) {
+          const row = jsonData[i];
+          const rowStr = row.map((cell: any) => String(cell).toLowerCase()).join('|');
+          if (rowStr.includes('name') || rowStr.includes('phone') || rowStr.includes('code') || rowStr.includes('reference')) {
+            headerRowIndex = i;
+            break;
+          }
+        }
+
+        if (headerRowIndex === -1) {
+          throw new ValidationError(
+            'Could not find header row. Expected columns: Code/Reference, Name, Valid·Phone·Number'
+          );
+        }
+
+        // Normalize headers to match expected format
+        const headers = jsonData[headerRowIndex].map((h: string) => {
+          const normalized = String(h).toLowerCase().replace(/[·\s]+/g, '_').replace(/[^\w_]/g, '');
+          // Map common variations to expected fields
+          if (normalized.includes('name')) return 'full_name';
+          if (normalized.includes('phone') || normalized.includes('number')) return 'phone';
+          if (normalized.includes('code') || normalized.includes('reference')) return 'unique_id';
+          if (normalized.includes('class') || normalized.includes('year') || normalized.includes('group')) return 'class_year_group';
+          return normalized;
+        });
+
+        // Convert data rows to object format
+        votersData = jsonData.slice(headerRowIndex + 1).map((row) => {
           const obj: any = {};
           headers.forEach((header: string, index: number) => {
-            obj[header] = row[index] || '';
+            if (row[index] !== undefined && row[index] !== null && row[index] !== '') {
+              // Clean up values: replace middle dots with spaces, trim whitespace
+              obj[header] = String(row[index]).replace(/·/g, ' ').trim();
+            }
           });
+          // Add year group if we extracted it and no class_year_group column exists
+          if (yearGroup && !obj.class_year_group) {
+            obj.class_year_group = yearGroup;
+          }
           return obj;
-        });
+        }).filter((obj) => obj.full_name || obj.phone); // Filter out empty rows
       }
 
       // Validate and normalize data
