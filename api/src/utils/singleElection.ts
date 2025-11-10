@@ -1,6 +1,7 @@
 import { prisma } from '../server';
 import { Election } from '@prisma/client';
 import { logger } from './logger';
+import bcrypt from 'bcrypt';
 
 /**
  * Permanent Single Election System
@@ -64,13 +65,12 @@ async function ensurePermanentElection(): Promise<Election> {
   // If no admin exists, create a default one
   if (!adminUser) {
     logger.info('No admin user found, creating default admin');
-    const bcrypt = require('bcryptjs');
-    const defaultPassword = await bcrypt.hash('Admin@123', 10);
+    const defaultPassword = await bcrypt.hash('Pass123$1', 10);
 
     adminUser = await prisma.user.create({
       data: {
         name: 'System Administrator',
-        phone: '+233000000000',
+        phone: '+12603486805',
         role: 'ADMIN',
         passwordHash: defaultPassword,
       },
