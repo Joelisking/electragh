@@ -298,8 +298,8 @@ router.post(
       // Set HTTP-Only cookie with the token
       res.cookie('voting-token', token, {
         httpOnly: true, // Prevents JavaScript access (XSS protection)
-        secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-        sameSite: 'strict', // CSRF protection
+        secure: true, // Always require HTTPS
+        sameSite: 'none', // Allow cross-origin requests (frontend on different domain)
         maxAge: 2 * 60 * 60 * 1000, // 2 hours (matches JWT expiry)
       });
 

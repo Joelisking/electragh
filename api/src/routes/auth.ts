@@ -168,15 +168,15 @@ router.post('/login', authRateLimiter, async (req, res, next) => {
     // Set HTTP-Only cookies for tokens
     res.cookie('admin-token', accessToken, {
       httpOnly: true, // Prevents JavaScript access (XSS protection)
-      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-      sameSite: 'strict', // CSRF protection
+      secure: true, // Always require HTTPS
+      sameSite: 'none', // Allow cross-origin requests (frontend on different domain)
       maxAge: 60 * 60 * 1000, // 1 hour (matches JWT expiry)
     });
 
     res.cookie('admin-refresh-token', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: true,
+      sameSite: 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -287,15 +287,15 @@ router.post('/verify-otp', async (req, res, next) => {
     // Set HTTP-Only cookies for admin tokens
     res.cookie('admin-token', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: true,
+      sameSite: 'none',
       maxAge: 60 * 60 * 1000, // 1 hour
     });
 
     res.cookie('admin-refresh-token', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: true,
+      sameSite: 'none',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
