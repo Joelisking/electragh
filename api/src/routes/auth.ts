@@ -38,14 +38,14 @@ const router = express.Router();
 router.post('/logout', (req, res) => {
   res.clearCookie('admin-token', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: true,
+    sameSite: 'none',
   });
 
   res.clearCookie('admin-refresh-token', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: true,
+    sameSite: 'none',
   });
 
   res.json({ message: 'Logout successful' });
