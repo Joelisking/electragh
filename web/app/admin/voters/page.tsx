@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+// import { Badge } from '@/components/ui/badge';
 import {
   Table,
   TableBody,
@@ -37,6 +37,7 @@ import {
   Phone,
   UserPlus,
   Loader2,
+  // RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -84,7 +85,9 @@ export default function VotersPage() {
   // Dialog states
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [selectedVoter, setSelectedVoter] = useState<Voter | null>(null);
+  const [selectedVoter, setSelectedVoter] = useState<Voter | null>(
+    null
+  );
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
@@ -92,6 +95,8 @@ export default function VotersPage() {
     uniqueIdentifier: '',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const apiUrl =
     process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -103,10 +108,12 @@ export default function VotersPage() {
 
   const fetchVoters = async () => {
     try {
+      // Add cache-busting timestamp to ensure fresh data
       const response = await fetch(
-        `${apiUrl}/api/voters?limit=1000`,
+        `${apiUrl}/api/voters?limit=1000&_t=${Date.now()}`,
         {
           credentials: 'include',
+          cache: 'no-store', // Disable caching
         }
       );
 
@@ -115,6 +122,8 @@ export default function VotersPage() {
       }
 
       const data = await response.json();
+      // eslint-disable-next-line no-console
+      console.log('Fetched voters response:', data);
       setVoters(data.voters);
     } catch (err) {
       setError(
@@ -128,9 +137,13 @@ export default function VotersPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch(`${apiUrl}/api/voters/stats`, {
-        credentials: 'include',
-      });
+      const response = await fetch(
+        `${apiUrl}/api/voters/stats?_t=${Date.now()}`,
+        {
+          credentials: 'include',
+          cache: 'no-store', // Disable caching
+        }
+      );
 
       if (!response.ok) {
         throw new Error('Failed to fetch stats');
@@ -255,6 +268,18 @@ export default function VotersPage() {
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([fetchVoters(), fetchStats()]);
+      toast.success('Voter data refreshed');
+    } catch (err) {
+      toast.error('Failed to refresh data');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const handleExport = async () => {
     try {
       const response = await fetch(
@@ -272,7 +297,9 @@ export default function VotersPage() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `voters-${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `voters-${
+        new Date().toISOString().split('T')[0]
+      }.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -286,40 +313,53 @@ export default function VotersPage() {
     }
   };
 
-  const handleImport = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.csv,.xlsx,.xls';
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
+  const handleFileChange = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-      const formData = new FormData();
-      formData.append('file', file);
+    setImporting(true);
+    toast.loading('Importing voters...', { id: 'import-toast' });
 
-      try {
-        const response = await fetch(`${apiUrl}/api/voters/import`, {
-          method: 'POST',
-          credentials: 'include',
-          body: formData,
-        });
+    const formData = new FormData();
+    formData.append('file', file);
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'Failed to import voters');
-        }
+    try {
+      const response = await fetch(`${apiUrl}/api/voters/import`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
+      });
 
-        const result = await response.json();
-        toast.success(`Successfully imported ${result.imported} voters`);
-        fetchVoters();
-        fetchStats();
-      } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : 'Failed to import voters'
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.message || 'Failed to import voters'
         );
       }
-    };
-    input.click();
+
+      const result = await response.json();
+      toast.success(
+        `Successfully imported ${result.imported} voters`,
+        {
+          id: 'import-toast',
+        }
+      );
+      await fetchVoters();
+      await fetchStats();
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : 'Failed to import voters',
+        { id: 'import-toast' }
+      );
+    } finally {
+      setImporting(false);
+      // Reset the input value so the same file can be selected again
+      event.target.value = '';
+    }
   };
 
   if (loading) {
@@ -358,14 +398,41 @@ export default function VotersPage() {
             Manage registered voters and their status
           </p>
         </div>
-        <div className="flex space-x-2">
-          <Button
-            onClick={handleImport}
+        <div className="flex space-x-2 items-center">
+          {/* <Button
+            onClick={handleRefresh}
+            disabled={refreshing}
             variant="outline"
-            className="border-electra-primary/30 text-electra-primary hover:bg-electra-primary-light/20 transition-all hover:scale-105 duration-200">
-            <Download className="w-4 h-4 mr-2" />
-            Import CSV
-          </Button>
+            size="sm"
+            className="border-gray-300 text-gray-700 hover:bg-gray-50">
+            <RefreshCw
+              className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`}
+            />
+            Refresh
+          </Button> */}
+          <Label
+            htmlFor="import-file"
+            className="cursor-pointer inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-electra-primary/30 text-electra-primary hover:bg-electra-primary-light/20 h-10 px-4 py-2">
+            {importing ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Importing...
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4 mr-2" />
+                Import CSV
+              </>
+            )}
+          </Label>
+          <Input
+            id="import-file"
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            onChange={handleFileChange}
+            disabled={importing}
+            className="hidden"
+          />
           <Button
             onClick={handleExport}
             variant="outline"
@@ -475,8 +542,8 @@ export default function VotersPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead>Class/Year</TableHead>
-                <TableHead>Unique ID</TableHead>
-                <TableHead>Status</TableHead>
+                {/* <TableHead>Unique ID</TableHead> */}
+                {/* <TableHead>Status</TableHead> */}
                 <TableHead>Last Login</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -492,10 +559,10 @@ export default function VotersPage() {
                     <TableCell>
                       {voter.classYearGroup || '-'}
                     </TableCell>
-                    <TableCell>
+                    {/* <TableCell>
                       {voter.uniqueIdentifier || '-'}
-                    </TableCell>
-                    <TableCell>
+                    </TableCell> */}
+                    {/* <TableCell>
                       <Badge
                         className={`${getStatusBadgeClass(
                           voter
@@ -505,7 +572,7 @@ export default function VotersPage() {
                           {getDisplayStatus(voter)}
                         </span>
                       </Badge>
-                    </TableCell>
+                    </TableCell> */}
                     <TableCell>
                       {voter.lastLogin
                         ? new Date(
@@ -519,7 +586,7 @@ export default function VotersPage() {
                           onClick={() => handleEditVoter(voter)}
                           variant="outline"
                           size="sm"
-                          className="border-electra-primary/30 text-electra-primary hover:bg-electra-primary-light/20 transition-all">
+                          className="border-electra-primary/30 text-electra-primary hover:text-electra-primary hover:bg-electra-primary-light/20 transition-all">
                           Edit
                         </Button>
                         <Button
@@ -562,7 +629,10 @@ export default function VotersPage() {
                 id="edit-fullName"
                 value={formData.fullName}
                 onChange={(e) =>
-                  setFormData({ ...formData, fullName: e.target.value })
+                  setFormData({
+                    ...formData,
+                    fullName: e.target.value,
+                  })
                 }
                 placeholder="Enter full name"
               />
@@ -593,7 +663,9 @@ export default function VotersPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-identifier">Unique Identifier</Label>
+              <Label htmlFor="edit-identifier">
+                Unique Identifier
+              </Label>
               <Input
                 id="edit-identifier"
                 value={formData.uniqueIdentifier}
@@ -647,7 +719,10 @@ export default function VotersPage() {
                 id="add-fullName"
                 value={formData.fullName}
                 onChange={(e) =>
-                  setFormData({ ...formData, fullName: e.target.value })
+                  setFormData({
+                    ...formData,
+                    fullName: e.target.value,
+                  })
                 }
                 placeholder="Enter full name"
               />
@@ -678,7 +753,9 @@ export default function VotersPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="add-identifier">Unique Identifier</Label>
+              <Label htmlFor="add-identifier">
+                Unique Identifier
+              </Label>
               <Input
                 id="add-identifier"
                 value={formData.uniqueIdentifier}

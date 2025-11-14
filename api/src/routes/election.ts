@@ -304,6 +304,7 @@ router.post('/reset', async (req: AuthenticatedRequest, res, next) => {
       data: {
         hasVoted: false,
         votedAt: null,
+        status: 'VERIFIED', // Reset status back to VERIFIED
       },
     });
 

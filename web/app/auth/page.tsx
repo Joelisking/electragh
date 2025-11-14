@@ -14,14 +14,18 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Check, ChevronDown } from 'lucide-react';
 import {
   InputOTP,
@@ -34,7 +38,6 @@ import {
   Shield,
   ArrowRight,
   Loader2,
-  ShieldClose,
   ShieldIcon,
 } from 'lucide-react';
 import Image from 'next/image';
@@ -127,8 +130,11 @@ export default function AuthPage() {
         // Token is now stored in HTTP-Only cookie by the backend
         // No need to manually store it in localStorage
 
-        // Login the user with their phone number
-        login(phoneNumber.trim(), data?.voter?.fullName);
+        // Login the user with their full phone number (including country code)
+        const fullPhoneNumber = `${
+          selectedCountry.dialCode
+        }${phoneNumber.trim()}`;
+        login(fullPhoneNumber, data?.voter?.fullName);
         toast.success('Authentication successful!');
         router.push('/');
       },
@@ -165,9 +171,15 @@ export default function AuthPage() {
       toast.error('Please enter the complete 6-digit OTP');
       return;
     }
+
+    // Combine country code with phone number (same as request)
+    const fullPhoneNumber = `${
+      selectedCountry.dialCode
+    }${phoneNumber.trim()}`;
+
     verifyOtpMutation.mutate({
       data: {
-        phone: phoneNumber.trim(),
+        phone: fullPhoneNumber,
         code: otp,
       },
     });
@@ -232,9 +244,13 @@ export default function AuthPage() {
                     <Label className="text-sm font-medium text-gray-700">
                       Country
                     </Label>
-                    <Popover open={countryOpen} onOpenChange={setCountryOpen}>
+                    <Popover
+                      open={countryOpen}
+                      onOpenChange={setCountryOpen}>
                       <PopoverTrigger asChild>
-                        <button className="w-full h-12 text-base border-2 border-input rounded-full px-3 bg-background hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:border-electra-primary transition-colors flex items-center justify-between">
+                        <button
+                          type="button"
+                          className="w-full h-12 text-base border-2 border-input rounded-full px-3 bg-background hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:border-electra-primary transition-colors flex items-center justify-between">
                           <div className="flex items-center space-x-3">
                             <span className="text-lg">
                               {selectedCountry.flag}
@@ -249,10 +265,18 @@ export default function AuthPage() {
                           <ChevronDown className="h-4 w-4 opacity-50" />
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-full p-0" side="bottom" align="start">
+                      <PopoverContent
+                        className="w-full p-0"
+                        side="bottom"
+                        align="start">
                         <Command>
-                          <CommandInput placeholder="Search countries..." className="h-9" />
-                          <CommandEmpty>No country found.</CommandEmpty>
+                          <CommandInput
+                            placeholder="Search countries..."
+                            className="h-9"
+                          />
+                          <CommandEmpty>
+                            No country found.
+                          </CommandEmpty>
                           <CommandList>
                             <CommandGroup>
                               {countries.map((country) => (
@@ -276,7 +300,8 @@ export default function AuthPage() {
                                     </span>
                                     <Check
                                       className={`ml-auto h-4 w-4 ${
-                                        selectedCountry.code === country.code
+                                        selectedCountry.code ===
+                                        country.code
                                           ? 'opacity-100'
                                           : 'opacity-0'
                                       }`}

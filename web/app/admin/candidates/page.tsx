@@ -22,6 +22,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -37,6 +47,7 @@ import {
   Edit,
   Trash2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Candidate {
   id: string;
@@ -75,8 +86,20 @@ export default function CandidatesPage() {
     bio: '',
     photoFile: null as File | null,
   });
-  const [addPositionDialogOpen, setAddPositionDialogOpen] = useState(false);
+  const [addPositionDialogOpen, setAddPositionDialogOpen] =
+    useState(false);
   const [newPositionName, setNewPositionName] = useState('');
+  const [deletePositionDialogOpen, setDeletePositionDialogOpen] =
+    useState(false);
+  const [deleteCandidateDialogOpen, setDeleteCandidateDialogOpen] =
+    useState(false);
+  const [positionToDelete, setPositionToDelete] = useState<
+    string | null
+  >(null);
+  const [candidateToDelete, setCandidateToDelete] = useState<
+    string | null
+  >(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const apiUrl =
     process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -150,107 +173,203 @@ export default function CandidatesPage() {
 
   const handleAddPosition = async () => {
     if (!newPositionName.trim()) {
-      alert('Please enter a position name');
+      toast.error('Please enter a position name');
       return;
     }
 
+    setSubmitting(true);
     try {
+      // Calculate the next order number
+      const maxOrder =
+        positions.length > 0
+          ? Math.max(...positions.map((p) => p.order))
+          : 0;
+      const nextOrder = maxOrder + 1;
+
       const response = await fetch(`${apiUrl}/api/positions`, {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ name: newPositionName }),
+        body: JSON.stringify({
+          name: newPositionName,
+          order: nextOrder,
+        }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to add position');
+        throw new Error(
+          errorData.message || 'Failed to add position'
+        );
       }
 
-      alert('Position added successfully');
+      toast.success('Position added successfully');
       setNewPositionName('');
       setAddPositionDialogOpen(false);
       fetchPositionsAndCandidates();
     } catch (err) {
       console.error('Error adding position:', err);
-      alert(err instanceof Error ? err.message : 'Failed to add position');
+      toast.error(
+        err instanceof Error ? err.message : 'Failed to add position'
+      );
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const handleDeletePosition = async (positionId: string) => {
-    if (!confirm('Are you sure you want to delete this position? All candidates under this position will also be deleted.')) {
-      return;
-    }
+  const handleDeletePosition = (positionId: string) => {
+    setPositionToDelete(positionId);
+    setDeletePositionDialogOpen(true);
+  };
 
+  const confirmDeletePosition = async () => {
+    if (!positionToDelete) return;
+
+    setSubmitting(true);
     try {
-      const response = await fetch(`${apiUrl}/api/positions/${positionId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
+      const response = await fetch(
+        `${apiUrl}/api/positions/${positionToDelete}`,
+        {
+          method: 'DELETE',
+          credentials: 'include',
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to delete position');
+        throw new Error(
+          errorData.message || 'Failed to delete position'
+        );
       }
 
-      alert('Position deleted successfully');
+      toast.success('Position deleted successfully');
       fetchPositionsAndCandidates();
     } catch (err) {
       console.error('Error deleting position:', err);
-      alert(err instanceof Error ? err.message : 'Failed to delete position');
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : 'Failed to delete position'
+      );
+    } finally {
+      setSubmitting(false);
+      setDeletePositionDialogOpen(false);
+      setPositionToDelete(null);
     }
   };
 
-  const handleDeleteCandidate = async (candidateId: string) => {
-    if (!confirm('Are you sure you want to delete this candidate?')) {
-      return;
-    }
+  const handleDeleteCandidate = (candidateId: string) => {
+    setCandidateToDelete(candidateId);
+    setDeleteCandidateDialogOpen(true);
+  };
 
+  const confirmDeleteCandidate = async () => {
+    if (!candidateToDelete) return;
+
+    setSubmitting(true);
     try {
-      const response = await fetch(`${apiUrl}/api/candidates/${candidateId}`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
+      const response = await fetch(
+        `${apiUrl}/api/candidates/${candidateToDelete}`,
+        {
+          method: 'DELETE',
+          credentials: 'include',
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to delete candidate');
+        throw new Error(
+          errorData.message || 'Failed to delete candidate'
+        );
       }
 
-      alert('Candidate deleted successfully');
+      toast.success('Candidate deleted successfully');
       fetchPositionsAndCandidates();
     } catch (err) {
       console.error('Error deleting candidate:', err);
-      alert(err instanceof Error ? err.message : 'Failed to delete candidate');
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : 'Failed to delete candidate'
+      );
+    } finally {
+      setSubmitting(false);
+      setDeleteCandidateDialogOpen(false);
+      setCandidateToDelete(null);
     }
   };
 
   const handleSaveCandidate = async () => {
     if (!newCandidate.fullName || !newCandidate.classYearGroup) {
-      alert('Please fill in required fields');
+      toast.error('Please fill in required fields');
       return;
     }
 
     const isEditing = !!selectedCandidate;
     if (!isEditing && !selectedPositionId) {
-      alert('No position selected');
+      toast.error('No position selected');
       return;
     }
 
+    setSubmitting(true);
     try {
-      const formData = new FormData();
-      formData.append('fullName', newCandidate.fullName);
-      formData.append('classYearGroup', newCandidate.classYearGroup);
+      let body: FormData | string;
+      let headers: HeadersInit = {};
+
+      // Calculate the next order for new candidates
+      let nextOrder: number | undefined;
       if (!isEditing) {
-        formData.append('positionId', selectedPositionId);
+        const position = positions.find((p) => p.id === selectedPositionId);
+        const maxOrder =
+          position && position.candidates.length > 0
+            ? Math.max(...position.candidates.map((c) => c.order))
+            : 0;
+        nextOrder = maxOrder + 1;
       }
-      if (newCandidate.bio) {
-        formData.append('bio', newCandidate.bio);
-      }
+
+      // If there's a photo, use FormData (multipart), otherwise use JSON
       if (newCandidate.photoFile) {
+        const formData = new FormData();
+        formData.append('fullName', newCandidate.fullName);
+        formData.append('classYearGroup', newCandidate.classYearGroup);
+
+        if (!isEditing && nextOrder !== undefined) {
+          formData.append('positionId', selectedPositionId);
+          formData.append('order', nextOrder.toString());
+        }
+
+        if (newCandidate.bio) {
+          formData.append('bio', newCandidate.bio);
+        }
         formData.append('photo', newCandidate.photoFile);
+
+        body = formData;
+      } else {
+        // Use JSON when no photo
+        const data: {
+          fullName: string;
+          classYearGroup: string;
+          positionId?: string;
+          order?: number;
+          bio?: string;
+        } = {
+          fullName: newCandidate.fullName,
+          classYearGroup: newCandidate.classYearGroup,
+        };
+
+        if (!isEditing && nextOrder !== undefined) {
+          data.positionId = selectedPositionId;
+          data.order = nextOrder; // Send as number
+        }
+
+        if (newCandidate.bio) {
+          data.bio = newCandidate.bio;
+        }
+
+        body = JSON.stringify(data);
+        headers = { 'Content-Type': 'application/json' };
       }
 
       const url = isEditing
@@ -261,7 +380,8 @@ export default function CandidatesPage() {
       const response = await fetch(url, {
         method,
         credentials: 'include',
-        body: formData,
+        headers,
+        body,
       });
 
       if (!response.ok) {
@@ -272,7 +392,9 @@ export default function CandidatesPage() {
         );
       }
 
-      alert(`Candidate ${isEditing ? 'updated' : 'added'} successfully`);
+      toast.success(
+        `Candidate ${isEditing ? 'updated' : 'added'} successfully`
+      );
 
       // Reset form
       setNewCandidate({
@@ -289,14 +411,20 @@ export default function CandidatesPage() {
       fetchPositionsAndCandidates();
     } catch (err) {
       console.error(
-        `Error ${selectedCandidate ? 'updating' : 'adding'} candidate:`,
+        `Error ${
+          selectedCandidate ? 'updating' : 'adding'
+        } candidate:`,
         err
       );
-      alert(
+      toast.error(
         err instanceof Error
           ? err.message
-          : `Failed to ${selectedCandidate ? 'update' : 'add'} candidate`
+          : `Failed to ${
+              selectedCandidate ? 'update' : 'add'
+            } candidate`
       );
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -530,7 +658,7 @@ export default function CandidatesPage() {
                             e.stopPropagation();
                             handleDeletePosition(position.id);
                           }}
-                          className="border-red-300 text-red-600 hover:bg-red-50">
+                          className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600">
                           <Trash2 className="w-4 h-4" />
                         </Button>
                         <Button variant="ghost" size="sm">
@@ -646,9 +774,11 @@ export default function CandidatesPage() {
                                   variant="outline"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleDeleteCandidate(candidate.id);
+                                    handleDeleteCandidate(
+                                      candidate.id
+                                    );
                                   }}
-                                  className="border-red-300 text-red-600 hover:bg-red-50">
+                                  className="border-red-300 text-red-600 hover:bg-red-50 hover:text-red-600">
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
                               </div>
@@ -752,9 +882,19 @@ export default function CandidatesPage() {
               </Button>
               <Button
                 onClick={handleSaveCandidate}
+                disabled={submitting}
                 className="bg-electra-primary hover:bg-electra-secondary transition-all shadow-md hover:shadow-lg">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Candidate
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Candidate
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -786,7 +926,9 @@ export default function CandidatesPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-classYear">Class/Year Group *</Label>
+              <Label htmlFor="edit-classYear">
+                Class/Year Group *
+              </Label>
               <Input
                 id="edit-classYear"
                 value={newCandidate.classYearGroup}
@@ -828,7 +970,8 @@ export default function CandidatesPage() {
                 }
               />
               <p className="text-xs text-gray-500">
-                Upload a new profile photo (leave empty to keep current photo)
+                Upload a new profile photo (leave empty to keep
+                current photo)
               </p>
             </div>
             <div className="flex justify-end space-x-2 pt-4">
@@ -848,9 +991,19 @@ export default function CandidatesPage() {
               </Button>
               <Button
                 onClick={handleSaveCandidate}
+                disabled={submitting}
                 className="bg-electra-primary hover:bg-electra-secondary transition-all shadow-md hover:shadow-lg">
-                <Edit className="w-4 h-4 mr-2" />
-                Update Candidate
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Update Candidate
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -858,7 +1011,9 @@ export default function CandidatesPage() {
       </Dialog>
 
       {/* Add Position Dialog */}
-      <Dialog open={addPositionDialogOpen} onOpenChange={setAddPositionDialogOpen}>
+      <Dialog
+        open={addPositionDialogOpen}
+        onOpenChange={setAddPositionDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add New Position</DialogTitle>
@@ -887,14 +1042,91 @@ export default function CandidatesPage() {
               </Button>
               <Button
                 onClick={handleAddPosition}
+                disabled={submitting}
                 className="bg-electra-primary hover:bg-electra-secondary transition-all shadow-md hover:shadow-lg">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Position
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Position
+                  </>
+                )}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Position Confirmation Dialog */}
+      <AlertDialog
+        open={deletePositionDialogOpen}
+        onOpenChange={setDeletePositionDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Position</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this position? All
+              candidates under this position will also be deleted.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submitting}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeletePosition}
+              disabled={submitting}
+              className="bg-red-600 hover:bg-red-700">
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Candidate Confirmation Dialog */}
+      <AlertDialog
+        open={deleteCandidateDialogOpen}
+        onOpenChange={setDeleteCandidateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Candidate</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this candidate? This
+              action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submitting}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteCandidate}
+              disabled={submitting}
+              className="bg-red-600 hover:bg-red-700">
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

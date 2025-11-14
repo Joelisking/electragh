@@ -707,12 +707,11 @@ router.post(
         try {
           // Normalize phone number
           let phone = row.phone?.toString().trim();
-          if (
-            phone &&
-            !phone.startsWith('+233') &&
-            !phone.startsWith('0')
-          ) {
-            phone = '+233' + phone;
+          if (phone) {
+            // Only add +233 if the number doesn't already start with + (international format) or 0 (local format)
+            if (!phone.startsWith('+') && !phone.startsWith('0')) {
+              phone = '+233' + phone;
+            }
           }
 
           const voterData = {
