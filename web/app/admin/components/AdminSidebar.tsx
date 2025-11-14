@@ -10,7 +10,6 @@ import {
   UserCheck,
   BarChart3,
   Settings,
-  Shield,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -32,17 +31,25 @@ export function AdminSidebar() {
       <div className="flex items-center justify-center h-16 border-b border-gray-200">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-gradient-to-br from-electra-primary to-electra-secondary rounded-xl flex items-center justify-center shadow-lg">
-            <Image src="/logo.png" alt="ElectraGH" width={20} height={20} className="w-5 h-5" />
+            <Image
+              src="/logo.png"
+              alt="ElectraGH"
+              width={20}
+              height={20}
+              className="w-5 h-5"
+            />
           </div>
-          <span className="text-lg font-bold bg-gradient-to-r from-electra-primary to-electra-secondary bg-clip-text text-transparent">ElectraGH</span>
+          <span className="text-lg font-bold">ElectraGH</span>
         </div>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-1">
         {navigation.map((item) => {
-          const isActive = pathname === item.href ||
-            (item.href !== '/admin' && pathname?.startsWith(item.href));
+          const isActive =
+            pathname === item.href ||
+            (item.href !== '/admin' &&
+              pathname?.startsWith(item.href));
 
           return (
             <Link
@@ -53,12 +60,13 @@ export function AdminSidebar() {
                 isActive
                   ? 'bg-electra-primary-light/50 text-electra-primary'
                   : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-              )}
-            >
-              <item.icon className={cn(
-                'w-5 h-5 mr-3',
-                isActive ? 'text-electra-primary' : 'text-gray-400'
-              )} />
+              )}>
+              <item.icon
+                className={cn(
+                  'w-5 h-5 mr-3',
+                  isActive ? 'text-electra-primary' : 'text-gray-400'
+                )}
+              />
               {item.name}
             </Link>
           );

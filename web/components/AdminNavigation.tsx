@@ -1,17 +1,14 @@
 'use client';
 
 import { useRouter, usePathname } from 'next/navigation';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
-  Shield,
   Users,
   UserCheck,
   BarChart3,
   Settings,
-  Vote,
   Activity,
   FileText,
   LogOut,
@@ -67,7 +64,7 @@ export default function AdminNavigation() {
               <span className="text-lg font-bold text-white">E</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-electra-primary to-electra-secondary bg-clip-text text-transparent">
+              <h1 className="text-xl font-bold text-transparent">
                 ElectraGH Control Center
               </h1>
               <p className="text-sm text-slate-600">
@@ -104,7 +101,9 @@ export default function AdminNavigation() {
           {/* User Info and Logout */}
           <div className="flex items-center space-x-4">
             <div className="text-right">
-              <p className="text-sm font-medium text-slate-900">JAK</p>
+              <p className="text-sm font-medium text-slate-900">
+                JAK
+              </p>
               <p className="text-xs text-slate-500">Admin</p>
             </div>
             <Badge className="bg-gradient-to-r from-electra-primary/20 to-electra-secondary/20 text-electra-primary border border-electra-primary/30 shadow-sm">

@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Vote, Users, CheckCircle, Settings } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 
 interface ElectionStatsProps {
   positionsCount: number;

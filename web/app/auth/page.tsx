@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState } from 'react';
@@ -208,7 +209,7 @@ export default function AuthPage() {
               className="w-10 h-10 sm:w-12 sm:h-12"
             />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-electra-primary to-electra-secondary bg-clip-text mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">
             ElectraGH
           </h1>
           <p className="text-sm sm:text-base text-gray-600 font-medium">

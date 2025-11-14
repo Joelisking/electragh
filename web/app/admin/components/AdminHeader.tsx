@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -5,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { LogOut, Clock, Menu } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 
 interface AdminHeaderProps {
   onMenuClick?: () => void;

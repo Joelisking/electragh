@@ -130,11 +130,8 @@ router.post(
         );
       }
 
-      if (voter.hasVoted) {
-        throw new ConflictError(
-          'You have already voted in this election'
-        );
-      }
+      // Allow voters who have already voted to still log in (to view results)
+      // The voting page will prevent them from voting again
 
       // Check if too many recent OTP attempts
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
@@ -242,11 +239,8 @@ router.post(
         throw new NotFoundError('Voter not found');
       }
 
-      if (voter.hasVoted) {
-        throw new ConflictError(
-          'You have already voted in this election'
-        );
-      }
+      // Allow voters who have already voted to still log in (to view results)
+      // The voting page will prevent them from voting again
 
       // Check OTP validity
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);

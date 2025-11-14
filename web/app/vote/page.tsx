@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,7 +16,6 @@ import {
   RadioGroupItem,
 } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import {
   Vote,
   ArrowLeft,
@@ -33,21 +31,6 @@ import {
   useGetApiVotingElection,
   usePostApiVotingCast,
 } from '@/lib/api/voting/voting';
-
-interface Candidate {
-  id: string;
-  fullName: string;
-  classYearGroup?: string;
-  photoUrl?: string;
-  bio?: string;
-}
-
-interface Position {
-  id: string;
-  name: string;
-  order: number;
-  candidates: Candidate[];
-}
 
 interface VoteData {
   [positionId: string]: string; // candidateId
@@ -80,6 +63,7 @@ export default function VotePage() {
         // Redirect to a confirmation page
         router.push('/');
       },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       onError: (error: any) => {
         console.error('Failed to cast votes:', error);
         toast.error(
@@ -253,9 +237,6 @@ export default function VotePage() {
         <div className="max-w-2xl mx-auto">
           {/* Header */}
           <div className="text-center mb-6 sm:mb-8">
-            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-electra-primary to-electra-secondary rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 shadow-lg">
-              <CheckCircle className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
-            </div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 leading-tight">
               Review Your Votes
             </h1>

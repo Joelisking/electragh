@@ -6,7 +6,11 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from '@/components/ui/avatar';
 import { Trophy, TrendingUp } from 'lucide-react';
 
 interface Candidate {
@@ -28,7 +32,9 @@ interface LeadingCandidatesProps {
   positions: Position[];
 }
 
-export function LeadingCandidates({ positions }: LeadingCandidatesProps) {
+export function LeadingCandidates({
+  positions,
+}: LeadingCandidatesProps) {
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -46,9 +52,12 @@ export function LeadingCandidates({ positions }: LeadingCandidatesProps) {
   };
 
   const getRankBadgeColor = (rank: number) => {
-    if (rank === 0) return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-    if (rank === 1) return 'bg-gray-100 text-gray-800 border-gray-300';
-    if (rank === 2) return 'bg-orange-100 text-orange-800 border-orange-300';
+    if (rank === 0)
+      return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+    if (rank === 1)
+      return 'bg-gray-100 text-gray-800 border-gray-300';
+    if (rank === 2)
+      return 'bg-orange-100 text-orange-800 border-orange-300';
     return 'bg-blue-100 text-blue-800 border-blue-300';
   };
 
@@ -74,7 +83,6 @@ export function LeadingCandidates({ positions }: LeadingCandidatesProps) {
             </div>
           ) : (
             positions.map((position) => {
-              const leader = position.candidates[0]; // Already sorted by votes
               const hasVotes = position.totalVotes > 0;
 
               return (
@@ -95,62 +103,69 @@ export function LeadingCandidates({ positions }: LeadingCandidatesProps) {
                   {/* Top 3 Candidates */}
                   {hasVotes ? (
                     <div className="space-y-3">
-                      {position.candidates.slice(0, 3).map((candidate, index) => (
-                        <div
-                          key={candidate.id}
-                          className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-gray-50 to-white border border-gray-100 hover:border-electra-primary/30 transition-all duration-200">
-                          {/* Rank Badge */}
+                      {position.candidates
+                        .slice(0, 3)
+                        .map((candidate, index) => (
                           <div
-                            className={`w-10 h-10 rounded-full bg-gradient-to-br ${getRankColor(
-                              index
-                            )} flex items-center justify-center text-white font-bold text-sm shadow-md`}>
-                            {index + 1}
-                          </div>
+                            key={candidate.id}
+                            className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-gray-50 to-white border border-gray-100 hover:border-electra-primary/30 transition-all duration-200">
+                            {/* Rank Badge */}
+                            <div
+                              className={`w-10 h-10 rounded-full bg-gradient-to-br ${getRankColor(
+                                index
+                              )} flex items-center justify-center text-white font-bold text-sm shadow-md`}>
+                              {index + 1}
+                            </div>
 
-                          {/* Avatar */}
-                          <Avatar className="w-10 h-10 border-2 border-white shadow-sm">
-                            <AvatarImage src={undefined} />
-                            <AvatarFallback className="bg-blue-600 text-white text-sm">
-                              {getInitials(candidate.name)}
-                            </AvatarFallback>
-                          </Avatar>
+                            {/* Avatar */}
+                            <Avatar className="w-10 h-10 border-2 border-white shadow-sm">
+                              <AvatarImage src={undefined} />
+                              <AvatarFallback className="bg-blue-600 text-white text-sm">
+                                {getInitials(candidate.name)}
+                              </AvatarFallback>
+                            </Avatar>
 
-                          {/* Candidate Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="font-semibold text-gray-900 truncate">
-                                {candidate.name}
-                              </p>
-                              {index === 0 && (
-                                <Trophy className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+                            {/* Candidate Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold text-gray-900 truncate">
+                                  {candidate.name}
+                                </p>
+                                {index === 0 && (
+                                  <Trophy className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+                                )}
+                              </div>
+                              {candidate.classYearGroup && (
+                                <p className="text-xs text-gray-600">
+                                  Class of {candidate.classYearGroup}
+                                </p>
                               )}
                             </div>
-                            {candidate.classYearGroup && (
-                              <p className="text-xs text-gray-600">
-                                Class of {candidate.classYearGroup}
-                              </p>
-                            )}
-                          </div>
 
-                          {/* Vote Stats */}
-                          <div className="text-right flex-shrink-0">
-                            <p className="text-lg font-bold text-electra-primary">
-                              {candidate.votes}
-                            </p>
-                            <Badge
-                              variant="outline"
-                              className={`text-xs ${getRankBadgeColor(index)}`}>
-                              {candidate.percentage}%
-                            </Badge>
+                            {/* Vote Stats */}
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-lg font-bold text-electra-primary">
+                                {candidate.votes}
+                              </p>
+                              <Badge
+                                variant="outline"
+                                className={`text-xs ${getRankBadgeColor(
+                                  index
+                                )}`}>
+                                {candidate.percentage}%
+                              </Badge>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
 
                       {/* Show count of remaining candidates */}
                       {position.candidates.length > 3 && (
                         <p className="text-sm text-gray-500 text-center pt-2">
-                          +{position.candidates.length - 3} more candidate
-                          {position.candidates.length - 3 !== 1 ? 's' : ''}
+                          +{position.candidates.length - 3} more
+                          candidate
+                          {position.candidates.length - 3 !== 1
+                            ? 's'
+                            : ''}
                         </p>
                       )}
                     </div>

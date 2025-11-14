@@ -325,7 +325,7 @@ router.get(
  */
 router.get(
   '/public/:electionId',
-  async (req, res, next) => {
+  async (req: AuthenticatedRequest, res, next) => {
     try {
       const { electionId } = req.params;
 
@@ -360,6 +360,23 @@ router.get(
       if (!election) {
         throw new NotFoundError('Election not found');
       }
+
+      // Check visibility settings
+      if (election.visibility === 'RESTRICTED') {
+        // Only EC members and admins can view results when visibility is RESTRICTED
+        if (
+          !req.user ||
+          !['ADMIN', 'EC_MEMBER'].includes(req.user.role)
+        ) {
+          throw new ValidationError('Results are restricted to EC members only');
+        }
+      } else if (election.visibility === 'PUBLIC') {
+        // Results are only shown after election ends for PUBLIC visibility
+        if (election.status !== 'ENDED') {
+          throw new ValidationError('Results will be available after the election ends');
+        }
+      }
+      // For LIVE_PUBLIC, no restrictions - results are always visible
 
       // Get total registered voters
       const totalVoters = await prisma.voter.count();

@@ -1,12 +1,19 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Shield, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
 import { toast } from 'sonner';
 
@@ -28,14 +35,19 @@ export default function AdminLoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Include cookies in request/response
-        body: JSON.stringify({ phone, password }),
-      });
+      const response = await fetch(
+        `${
+          process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+        }/api/auth/login`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include', // Include cookies in request/response
+          body: JSON.stringify({ phone, password }),
+        }
+      );
 
       const data = await response.json();
 
@@ -61,11 +73,15 @@ export default function AdminLoginPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="w-20 h-20 bg-gradient-to-br from-electra-primary to-electra-secondary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <Image src="/logo.png" alt="ElectraGH" width={48} height={48} className="w-12 h-12" />
+            <Image
+              src="/logo.png"
+              alt="ElectraGH"
+              width={48}
+              height={48}
+              className="w-12 h-12"
+            />
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-electra-primary to-electra-secondary bg-clip-text text-transparent mb-2">
-            ElectraGH Admin
-          </h1>
+          <h1 className="text-3xl font-bold mb-2">ElectraGH Admin</h1>
           <p className="text-gray-600 font-medium">
             Secure Administrative Access
           </p>
@@ -110,8 +126,7 @@ export default function AdminLoginPage() {
                     variant="ghost"
                     size="sm"
                     className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
+                    onClick={() => setShowPassword(!showPassword)}>
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
                     ) : (
@@ -124,8 +139,7 @@ export default function AdminLoginPage() {
               <Button
                 type="submit"
                 className="w-full bg-electra-primary hover:bg-electra-secondary transition-all duration-200 shadow-lg hover:shadow-xl"
-                disabled={isLoading}
-              >
+                disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -139,10 +153,16 @@ export default function AdminLoginPage() {
 
             {/* Default Credentials Info */}
             <div className="mt-6 p-4 bg-gray-50 rounded-lg border">
-              <h4 className="font-medium text-sm text-gray-900 mb-2">Default Credentials:</h4>
+              <h4 className="font-medium text-sm text-gray-900 mb-2">
+                Default Credentials:
+              </h4>
               <div className="text-sm text-gray-600 space-y-1">
-                <p><strong>Phone:</strong> +12603486805</p>
-                <p><strong>Password:</strong> Pass123$1</p>
+                <p>
+                  <strong>Phone:</strong> +12603486805
+                </p>
+                <p>
+                  <strong>Password:</strong> Pass123$1
+                </p>
               </div>
             </div>
           </CardContent>

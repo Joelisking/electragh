@@ -63,6 +63,56 @@ export default function ResultsPage() {
 
   const isLoading = electionLoading || resultsLoading;
 
+  // Check if the error is a visibility restriction
+  const getErrorMessage = () => {
+    if (resultsError) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const errorMessage =
+        (resultsError as any)?.response?.data?.message || '';
+
+      if (errorMessage.includes('restricted to EC members')) {
+        return {
+          title: 'Results Not Yet Available',
+          message:
+            'Election results are currently restricted to Electoral Commission members only. Results will be made publicly available after the election concludes.',
+          type: 'restricted' as const,
+        };
+      }
+
+      if (errorMessage.includes('after the election ends')) {
+        return {
+          title: 'Results Not Yet Available',
+          message:
+            'Election results will be publicly available once the election has ended. Please check back later.',
+          type: 'pending' as const,
+        };
+      }
+
+      return {
+        title: 'Unable to Load Results',
+        message:
+          'Failed to load results data. Please try again later.',
+        type: 'error' as const,
+      };
+    }
+
+    if (electionError) {
+      return {
+        title: 'Unable to Load Results',
+        message: 'Failed to load election data.',
+        type: 'error' as const,
+      };
+    }
+
+    return {
+      title: 'Unable to Load Results',
+      message: 'No election results available.',
+      type: 'error' as const,
+    };
+  };
+
+  const errorInfo = getErrorMessage();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-electra-primary-light via-white to-electra-secondary-light">
       {/* Header */}
@@ -91,7 +141,7 @@ export default function ResultsPage() {
                 />
               </div>
               <div className="min-w-0 text-center sm:text-left">
-                <h1 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-electra-primary to-electra-secondary bg-clip-text text-transparent truncate">
+                <h1 className="text-lg sm:text-xl font-bold text-transparent truncate">
                   ElectraGH Results
                 </h1>
                 <p className="text-xs sm:text-sm text-gray-600 font-medium hidden sm:block">
@@ -128,16 +178,18 @@ export default function ResultsPage() {
           </div>
         ) : electionError || resultsError || !resultsData ? (
           <div className="text-center py-12 px-4">
-            <AlertCircle className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-4 text-red-600" />
+            <AlertCircle
+              className={`w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-4 ${
+                errorInfo.type === 'error'
+                  ? 'text-red-600'
+                  : 'text-yellow-600'
+              }`}
+            />
             <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
-              Unable to Load Results
+              {errorInfo.title}
             </h2>
             <p className="text-sm sm:text-base text-gray-600 mb-6 max-w-md mx-auto">
-              {electionError
-                ? 'Failed to load election data.'
-                : resultsError
-                ? 'Failed to load results data.'
-                : 'No election results available.'}
+              {errorInfo.message}
             </p>
             <Button
               onClick={() => router.push('/')}
