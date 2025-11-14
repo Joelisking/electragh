@@ -51,11 +51,14 @@ const router = express.Router();
  *                   example: "Logout successful"
  */
 router.post('/logout', (req, res) => {
-  res.clearCookie('voting-token', {
+  const cookieOptions: any = {
     httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-  });
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    path: '/',
+  };
+
+  res.clearCookie('voting-token', cookieOptions);
 
   res.json({ message: 'Logout successful' });
 });
@@ -253,19 +256,32 @@ router.post(
         );
       }
 
-      // First try provider verification (e.g., Arkesel). If it returns true, accept.
+      // First try provider verification (e.g., Arkesel OTP API)
       let isVerified = false;
       try {
+        logger.info(`Attempting provider verification for voter ${voter.id} with phone ${voter.phone}`);
         isVerified = await verifyOtpSms(voter.phone, code);
+        logger.info(`Provider verification result for voter ${voter.id}: ${isVerified} (type: ${typeof isVerified})`);
       } catch (e) {
+        logger.error(`Provider verification error for voter ${voter.id}:`, e);
         isVerified = false;
       }
 
+      logger.info(`After provider check - isVerified value: ${isVerified}, will check local: ${!isVerified}`);
+
       // Fallback to local code match if provider verification not available/failed
       if (!isVerified) {
-        if (voter.lastOtpCode !== code) {
+        logger.info(`Provider verification failed, checking local OTP for voter ${voter.id}`);
+        logger.info(`Stored OTP: ${voter.lastOtpCode}, Provided OTP: ${code}`);
+
+        if (!voter.lastOtpCode || voter.lastOtpCode !== code) {
+          logger.warn(`Local OTP verification failed for voter ${voter.id}`);
           throw new ValidationError('Invalid OTP code');
         }
+
+        logger.info(`Local OTP verification successful for voter ${voter.id}`);
+      } else {
+        logger.info(`✓ Provider verification succeeded, skipping local check for voter ${voter.id}`);
       }
 
       // Update voter status
@@ -290,12 +306,17 @@ router.post(
       logger.info(`Voter ${voter.id} authenticated successfully`);
 
       // Set HTTP-Only cookie with the token
-      res.cookie('voting-token', token, {
+      const cookieOptions: any = {
         httpOnly: true, // Prevents JavaScript access (XSS protection)
-        secure: true, // Always require HTTPS
-        sameSite: 'none', // Allow cross-origin requests (frontend on different domain)
+        secure: process.env.NODE_ENV === 'production', // HTTPS in production, allow HTTP in development
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
         maxAge: 2 * 60 * 60 * 1000, // 2 hours (matches JWT expiry)
-      });
+        path: '/', // Ensure cookie is sent for all paths
+      };
+
+      // In production, don't set domain to allow cookie to work across subdomains
+      // The cookie will be set for the exact domain that set it
+      res.cookie('voting-token', token, cookieOptions);
 
       res.json({
         message: 'Authentication successful',

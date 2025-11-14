@@ -36,17 +36,15 @@ const router = express.Router();
  *                   example: "Logout successful"
  */
 router.post('/logout', (req, res) => {
-  res.clearCookie('admin-token', {
+  const cookieOptions: any = {
     httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-  });
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    path: '/',
+  };
 
-  res.clearCookie('admin-refresh-token', {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-  });
+  res.clearCookie('admin-token', cookieOptions);
+  res.clearCookie('admin-refresh-token', cookieOptions);
 
   res.json({ message: 'Logout successful' });
 });
@@ -166,17 +164,20 @@ router.post('/login', authRateLimiter, async (req, res, next) => {
     );
 
     // Set HTTP-Only cookies for tokens
-    res.cookie('admin-token', accessToken, {
+    const cookieOptions: any = {
       httpOnly: true, // Prevents JavaScript access (XSS protection)
-      secure: true, // Always require HTTPS
-      sameSite: 'none', // Allow cross-origin requests (frontend on different domain)
+      secure: process.env.NODE_ENV === 'production', // HTTPS in production, allow HTTP in development
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' for cross-origin in production
+      path: '/', // Ensure cookie is sent for all paths
+    };
+
+    res.cookie('admin-token', accessToken, {
+      ...cookieOptions,
       maxAge: 60 * 60 * 1000, // 1 hour (matches JWT expiry)
     });
 
     res.cookie('admin-refresh-token', refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
+      ...cookieOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
@@ -285,17 +286,20 @@ router.post('/verify-otp', async (req, res, next) => {
     logger.info(`Admin user ${user.phone} logged in via OTP`);
 
     // Set HTTP-Only cookies for admin tokens
-    res.cookie('admin-token', accessToken, {
+    const cookieOptions: any = {
       httpOnly: true,
-      secure: true,
-      sameSite: 'none',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/',
+    };
+
+    res.cookie('admin-token', accessToken, {
+      ...cookieOptions,
       maxAge: 60 * 60 * 1000, // 1 hour
     });
 
     res.cookie('admin-refresh-token', refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none',
+      ...cookieOptions,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
