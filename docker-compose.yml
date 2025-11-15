@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # API Service
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      # Use your Supabase connection string
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/electragh}
+      # Use your Upstash Redis URL
+      REDIS_URL: ${REDIS_URL:-redis://localhost:6379}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-change-in-production}
+      FRONTEND_URL: http://localhost:3000
+      NODE_ENV: production
+      PORT: 4000
+      # SMS (optional for local testing)
+      ARKESEL_API_KEY: ${ARKESEL_API_KEY:-}
+      ARKESEL_SENDER_ID: ${ARKESEL_SENDER_ID:-ElectraGH}
+      # AWS S3 (optional for local testing)
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      STORAGE_PROVIDER: ${STORAGE_PROVIDER:-local}
+    volumes:
+      # Mount uploads for local development
+      - ./api/uploads:/app/uploads
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend Service
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:4000
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Local Redis (only for local testing - use Upstash in production)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  uploads:
+
+networks:
+  default:
+    name: electragh-network

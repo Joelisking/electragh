@@ -33,6 +33,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env.local'), override: true }
 dotenv.config({ override: false }); // Load .env only for missing variables
 
 // Initialize Prisma client with connection pooling for high traffic
+// Optimized for Supabase free tier: 15 connections max
 export const prisma = new PrismaClient({
   datasources: {
     db: {
@@ -40,10 +41,11 @@ export const prisma = new PrismaClient({
     },
   },
   log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  // Connection pool limits optimized for Cloud Run
-  // Adjust based on your Cloud Run instance count and Cloud SQL connection limits
-  // Formula: (max_connections - superuser_reserved_connections) / max_instances
-  // For Cloud SQL default 100 connections: 100 / 10 instances = 10 per instance
+  // Connection pool limits optimized for Supabase free tier and Cloud Run
+  // Supabase free tier: 15 direct connections max (+ unlimited pooled connections)
+  // Cloud Run max instances: 5
+  // Formula: 15 / 5 = 3 connections per instance (safe)
+  // Using Supabase's connection pooler (port 6543) gives unlimited pooled connections
 });
 
 // Create Express app
