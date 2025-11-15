@@ -8,6 +8,7 @@
  */
 
 import express from 'express';
+import { z } from 'zod';
 import { prisma } from '../server';
 import {
   authenticateAdmin,
@@ -349,6 +350,14 @@ router.post(
   '/:id/start',
   async (req: AuthenticatedRequest, res, next) => {
     try {
+      const bodySchema = z.object({
+        startNow: z.boolean().optional().default(true),
+        startAt: z.string().datetime().optional(),
+        endAt: z.string().datetime().optional(),
+      });
+
+      const { startNow, startAt, endAt } = bodySchema.parse(req.body);
+
       const election = await prisma.election.findUnique({
         where: { id: req.params.id },
         include: {
@@ -394,17 +403,48 @@ router.post(
         );
       }
 
+      // Determine start and end times
       const now = new Date();
+      let finalStartAt: Date;
+      let finalEndAt: Date;
+
+      if (startNow) {
+        // Start immediately
+        finalStartAt = now;
+        // If endAt provided, use it; otherwise use existing election endAt or default to 24 hours
+        finalEndAt = endAt ? new Date(endAt) : election.endAt;
+      } else {
+        // Custom start time
+        if (!startAt) {
+          throw new ValidationError('startAt is required when startNow is false');
+        }
+        if (!endAt) {
+          throw new ValidationError('endAt is required when startNow is false');
+        }
+
+        finalStartAt = new Date(startAt);
+        finalEndAt = new Date(endAt);
+
+        // Validate times
+        if (finalStartAt < now) {
+          throw new ValidationError('Start time cannot be in the past');
+        }
+        if (finalEndAt <= finalStartAt) {
+          throw new ValidationError('End time must be after start time');
+        }
+      }
+
       const updatedElection = await prisma.election.update({
         where: { id: req.params.id },
         data: {
           status: 'ACTIVE',
-          startAt: now, // Set start time to now when manually starting
+          startAt: finalStartAt,
+          endAt: finalEndAt,
         },
       });
 
       logger.info(
-        `Election started: ${election.id} by user ${req.user!.id} at ${now.toISOString()}`
+        `Election started: ${election.id} by user ${req.user!.id} - Start: ${finalStartAt.toISOString()}, End: ${finalEndAt.toISOString()}`
       );
 
       res.json({

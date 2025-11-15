@@ -329,7 +329,7 @@ export default function VotePage() {
         <div className="flex items-center justify-between mb-4 sm:mb-6">
           <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-electra-primary to-electra-secondary rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
-              <Vote className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              <Vote className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div className="min-w-0">
               <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">

@@ -76,6 +76,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Clear local authentication state
       setUser(null);
       localStorage.removeItem('voting-auth');
+      localStorage.removeItem('voting-token');
     }
   };
 

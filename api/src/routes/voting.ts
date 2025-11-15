@@ -318,6 +318,8 @@ router.post(
       // The cookie will be set for the exact domain that set it
       res.cookie('voting-token', token, cookieOptions);
 
+      logger.info(`[Voter Auth] Set cookie - secure: ${cookieOptions.secure}, sameSite: ${cookieOptions.sameSite}, path: ${cookieOptions.path}`);
+
       res.json({
         message: 'Authentication successful',
         voter: {
@@ -325,6 +327,7 @@ router.post(
           fullName: voter.fullName,
           phone: voter.phone,
         },
+        token, // Also return token in body for mobile devices that might not handle cookies properly
       });
     } catch (error) {
       next(error);

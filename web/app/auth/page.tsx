@@ -128,8 +128,11 @@ export default function AuthPage() {
   const verifyOtpMutation = usePostApiVotingVerifyOtp({
     mutation: {
       onSuccess: (data: any) => {
-        // Token is now stored in HTTP-Only cookie by the backend
-        // No need to manually store it in localStorage
+        // Token is stored in HTTP-Only cookie by the backend
+        // But also store it in localStorage as fallback for mobile devices
+        if (data?.token) {
+          localStorage.setItem('voting-token', data.token);
+        }
 
         // Login the user with their full phone number (including country code)
         const fullPhoneNumber = `${

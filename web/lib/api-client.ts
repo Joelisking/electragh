@@ -10,11 +10,24 @@ export const apiClient = axios.create({
   withCredentials: true, // Send cookies with every request
 });
 
-// Add request interceptor (no longer needed for token attachment - cookies handle it)
-// Keeping this for potential future use (e.g., request logging, custom headers)
+// Add request interceptor to attach token from localStorage as fallback
 apiClient.interceptors.request.use(
   (config) => {
     // Cookies are automatically sent via withCredentials
+    // But also send token in Authorization header as fallback for mobile devices
+    if (typeof window !== 'undefined') {
+      const votingToken = localStorage.getItem('voting-token');
+      const adminToken = localStorage.getItem('admin-token');
+
+      // For voting routes, use voting token
+      if (config.url?.includes('/voting') && votingToken) {
+        config.headers.Authorization = `Bearer ${votingToken}`;
+      }
+      // For admin routes, use admin token
+      else if (adminToken) {
+        config.headers.Authorization = `Bearer ${adminToken}`;
+      }
+    }
     return config;
   },
   (error) => {
@@ -31,37 +44,47 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
-      // Try to refresh the token
-      try {
-        await apiClient.post('/api/auth/refresh');
-        // If refresh succeeds, retry the original request
-        return apiClient(originalRequest);
-      } catch (refreshError) {
-        // If refresh fails, clear auth data and redirect
+      // Check if this is a voting route - voters don't have refresh tokens
+      const isVotingRoute = originalRequest.url?.includes('/voting');
+
+      if (isVotingRoute) {
+        // For voting routes, just clear auth and redirect - no refresh attempt
         if (typeof window !== 'undefined') {
-          // Show user-friendly message
           const toast = (window as any).toast;
           if (toast) {
             toast.error('Session expired. Please log in again.');
           }
 
-          // Clear all auth-related localStorage items
           localStorage.removeItem('voting-auth');
-          localStorage.removeItem('admin-user');
-
-          // Trigger auth context logout event
+          localStorage.removeItem('voting-token');
           window.dispatchEvent(new CustomEvent('auth:logout'));
 
-          // Small delay to allow toast to show
           setTimeout(() => {
-            // Redirect based on current path
-            const currentPath = window.location.pathname;
-            if (currentPath.startsWith('/admin')) {
-              window.location.href = '/admin/login';
-            } else {
-              window.location.href = '/auth';
-            }
+            window.location.href = '/auth';
           }, 1000);
+        }
+      } else {
+        // For admin routes, try to refresh the token
+        try {
+          await apiClient.post('/api/auth/refresh');
+          // If refresh succeeds, retry the original request
+          return apiClient(originalRequest);
+        } catch (refreshError) {
+          // If refresh fails, clear auth data and redirect
+          if (typeof window !== 'undefined') {
+            const toast = (window as any).toast;
+            if (toast) {
+              toast.error('Session expired. Please log in again.');
+            }
+
+            localStorage.removeItem('admin-user');
+            localStorage.removeItem('admin-token');
+            localStorage.removeItem('admin-refresh-token');
+
+            setTimeout(() => {
+              window.location.href = '/admin/login';
+            }, 1000);
+          }
         }
       }
     }
