@@ -111,6 +111,17 @@ const corsOptions = {
       return callback(null, true);
     }
 
+    // Allow requests from any Cloud Run service (including self and monitoring services)
+    // This handles *.run.app and *.a.run.app domains
+    const requestHost = origin.replace(/^https?:\/\//, '').split('/')[0];
+    const isCloudRunService = requestHost.includes('.run.app') || requestHost.includes('.a.run.app');
+
+    if (isCloudRunService) {
+      logger.debug(`CORS: Allowing Cloud Run service: ${origin}`);
+      return callback(null, true);
+    }
+
+    // Check against configured allowed origins
     const allowedOrigins = process.env.FRONTEND_URL
       ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
       : ['http://localhost:3000'];
@@ -119,13 +130,14 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    // Log rejected origins for debugging
+    // Log rejected origins for debugging (but don't throw error to avoid 500s)
     logger.warn(`CORS: Rejected origin: ${origin}`, {
       allowedOrigins,
       environment: process.env.NODE_ENV,
     });
 
-    callback(new Error('Not allowed by CORS'));
+    // Return false instead of throwing error to prevent 500 status codes
+    callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
