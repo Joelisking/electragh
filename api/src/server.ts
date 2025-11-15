@@ -52,6 +52,29 @@ export const prisma = new PrismaClient({
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+// Health check endpoint BEFORE CORS and other middleware
+// This allows Cloud Run health checks and monitoring to work without CORS issues
+app.get('/health', async (req, res) => {
+  try {
+    const redisHealthy = await checkRedisHealth();
+    res.status(200).json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      services: {
+        database: 'connected',
+        cache: redisHealthy ? 'connected' : 'unavailable',
+      },
+    });
+  } catch (error) {
+    res.status(503).json({
+      status: 'unhealthy',
+      timestamp: new Date().toISOString(),
+      error: 'Service unavailable',
+    });
+  }
+});
+
 // Security middleware
 app.use(
   helmet({
@@ -82,19 +105,27 @@ const corsOptions = {
         return callback(null, true);
       }
     }
-    
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
+
+    // Allow requests with no origin (like mobile apps, curl, or internal Cloud Run requests)
+    if (!origin) {
+      return callback(null, true);
+    }
+
     const allowedOrigins = process.env.FRONTEND_URL
       ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
       : ['http://localhost:3000'];
-    
+
     if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+      return callback(null, true);
     }
+
+    // Log rejected origins for debugging
+    logger.warn(`CORS: Rejected origin: ${origin}`, {
+      allowedOrigins,
+      environment: process.env.NODE_ENV,
+    });
+
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -140,20 +171,6 @@ app.use(rateLimiter);
 
 // Audit logging middleware
 app.use(auditLogger);
-
-// Health check endpoint (includes Redis status)
-app.get('/health', async (req, res) => {
-  const redisHealthy = await checkRedisHealth();
-  res.status(200).json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
-    services: {
-      database: 'connected',
-      cache: redisHealthy ? 'connected' : 'unavailable',
-    },
-  });
-});
 
 // API routes
 app.use('/api/auth', authRoutes);
