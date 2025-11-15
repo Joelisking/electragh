@@ -2,6 +2,7 @@ import { prisma } from '../server';
 import { Election } from '@prisma/client';
 import { logger } from './logger';
 import bcrypt from 'bcrypt';
+import { getCached, setCache, deleteCache, CACHE_CONFIG } from '../services/cacheService';
 
 /**
  * Permanent Single Election System
@@ -9,11 +10,13 @@ import bcrypt from 'bcrypt';
  * This system maintains a single permanent election that always exists.
  * Admins manage the election's visibility, state, candidates, and voters,
  * but cannot delete or create new elections.
+ *
+ * Now enhanced with Redis caching for high-traffic performance.
  */
 
 let cachedElection: Election | null = null;
 let lastFetchTime = 0;
-const CACHE_DURATION = 5000; // 5 seconds
+const CACHE_DURATION = 5000; // 5 seconds (in-memory fallback)
 
 // Permanent election constants
 const PERMANENT_ELECTION_ID = 'permanent-election-001';
@@ -23,29 +26,37 @@ const ELECTION_DESCRIPTION = 'Official election for student leadership positions
 /**
  * Get the permanent election
  * Returns the single permanent election instance, creating it if it doesn't exist
+ * Now uses Redis caching for better performance under load
  */
 export async function getSingleElection(): Promise<Election> {
-  // Check cache first
-  const now = Date.now();
-  if (cachedElection && (now - lastFetchTime) < CACHE_DURATION) {
-    return cachedElection;
-  }
+  // Try Redis cache first, fallback to in-memory, then database
+  return getCached(
+    CACHE_CONFIG.ELECTION.key,
+    async () => {
+      // Check in-memory cache as second layer
+      const now = Date.now();
+      if (cachedElection && (now - lastFetchTime) < CACHE_DURATION) {
+        return cachedElection;
+      }
 
-  // Find the permanent election
-  let election = await prisma.election.findFirst({
-    orderBy: { createdAt: 'asc' },
-  });
+      // Find the permanent election from database
+      let election = await prisma.election.findFirst({
+        orderBy: { createdAt: 'asc' },
+      });
 
-  // If no election exists, create the permanent one
-  if (!election) {
-    election = await ensurePermanentElection();
-  }
+      // If no election exists, create the permanent one
+      if (!election) {
+        election = await ensurePermanentElection();
+      }
 
-  // Update cache
-  cachedElection = election;
-  lastFetchTime = now;
+      // Update in-memory cache
+      cachedElection = election;
+      lastFetchTime = now;
 
-  return election;
+      return election;
+    },
+    CACHE_CONFIG.ELECTION.ttl
+  );
 }
 
 /**
@@ -111,28 +122,35 @@ async function ensurePermanentElection(): Promise<Election> {
 
 /**
  * Get the single election with related data
+ * Cached separately with positions and candidates for voting page performance
  */
 export async function getSingleElectionWithDetails() {
-  const election = await getSingleElection();
+  return getCached(
+    CACHE_CONFIG.ELECTION_DETAILS.key,
+    async () => {
+      const election = await getSingleElection();
 
-  return prisma.election.findUnique({
-    where: { id: election.id },
-    include: {
-      positions: {
+      return prisma.election.findUnique({
+        where: { id: election.id },
         include: {
-          candidates: {
+          positions: {
+            include: {
+              candidates: {
+                orderBy: { order: 'asc' },
+              },
+            },
             orderBy: { order: 'asc' },
           },
+          _count: {
+            select: {
+              ballots: true,
+            },
+          },
         },
-        orderBy: { order: 'asc' },
-      },
-      _count: {
-        select: {
-          ballots: true,
-        },
-      },
+      });
     },
-  });
+    CACHE_CONFIG.ELECTION_DETAILS.ttl
+  );
 }
 
 /**
@@ -146,9 +164,15 @@ export async function updateSingleElection(data: Partial<Election>) {
     data,
   });
 
-  // Clear cache
+  // Clear both in-memory and Redis caches
   cachedElection = updated;
   lastFetchTime = Date.now();
+
+  // Clear Redis caches
+  await Promise.all([
+    deleteCache(CACHE_CONFIG.ELECTION.key),
+    deleteCache(CACHE_CONFIG.ELECTION_DETAILS.key),
+  ]);
 
   return updated;
 }
@@ -163,10 +187,17 @@ export async function getSingleElectionId(): Promise<string> {
 
 /**
  * Clear the election cache (useful after updates)
+ * Now clears both in-memory and Redis caches
  */
-export function clearElectionCache() {
+export async function clearElectionCache() {
   cachedElection = null;
   lastFetchTime = 0;
+
+  // Clear Redis caches
+  await Promise.all([
+    deleteCache(CACHE_CONFIG.ELECTION.key),
+    deleteCache(CACHE_CONFIG.ELECTION_DETAILS.key),
+  ]);
 }
 
 /**

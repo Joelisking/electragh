@@ -26,6 +26,8 @@ import {
   verifyOtpSms,
 } from '../services/smsService';
 import { logger } from '../utils/logger';
+import { clearResultsCache } from '../services/resultsService';
+import { clearVoterCache } from '../services/cacheService';
 
 const router = express.Router();
 
@@ -690,6 +692,14 @@ router.post(
           votes.length
         } votes in election ${currentElection.id}`
       );
+
+      // Clear results and voter caches to reflect new vote
+      await Promise.all([
+        clearResultsCache(),
+        clearVoterCache(req.voter!.id),
+      ]).catch((err) => {
+        logger.error('Failed to clear cache after vote:', err);
+      });
 
       // Send vote confirmation SMS
       try {

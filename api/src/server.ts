@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import { PrismaClient } from '@prisma/client';
 import dotenv from 'dotenv';
@@ -25,13 +26,25 @@ import { auditLogger } from './middleware/auditLogger';
 import { rateLimiter } from './middleware/rateLimiter';
 import { logger } from './utils/logger';
 import { initializeSingleElection } from './utils/singleElection';
+import { initializeRedis, closeRedis, checkRedisHealth } from './services/cacheService';
 
 // Load environment variables (.env.local takes precedence over .env)
 dotenv.config({ path: path.resolve(__dirname, '../.env.local'), override: true });
 dotenv.config({ override: false }); // Load .env only for missing variables
 
-// Initialize Prisma client
-export const prisma = new PrismaClient();
+// Initialize Prisma client with connection pooling for high traffic
+export const prisma = new PrismaClient({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
+  log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+  // Connection pool limits optimized for Cloud Run
+  // Adjust based on your Cloud Run instance count and Cloud SQL connection limits
+  // Formula: (max_connections - superuser_reserved_connections) / max_instances
+  // For Cloud SQL default 100 connections: 100 / 10 instances = 10 per instance
+});
 
 // Create Express app
 const app = express();
@@ -99,6 +112,20 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
+// Response compression for better performance
+app.use(compression({
+  // Only compress responses larger than 1kb
+  threshold: 1024,
+  // Compress all text-based responses
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  },
+  level: 6, // Balance between speed and compression ratio
+}));
+
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -112,12 +139,17 @@ app.use(rateLimiter);
 // Audit logging middleware
 app.use(auditLogger);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
+// Health check endpoint (includes Redis status)
+app.get('/health', async (req, res) => {
+  const redisHealthy = await checkRedisHealth();
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
+    services: {
+      database: 'connected',
+      cache: redisHealthy ? 'connected' : 'unavailable',
+    },
   });
 });
 
@@ -150,12 +182,14 @@ app.use(errorHandler);
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully');
+  await closeRedis();
   await prisma.$disconnect();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully');
+  await closeRedis();
   await prisma.$disconnect();
   process.exit(0);
 });
@@ -167,6 +201,19 @@ app.listen(PORT, async () => {
   );
   logger.info(`📊 Environment: ${process.env.NODE_ENV}`);
   logger.info(`🔒 Security headers enabled`);
+  logger.info(`🗜️  Response compression enabled`);
+
+  // Initialize Redis cache
+  try {
+    const redisClient = initializeRedis();
+    if (redisClient) {
+      logger.info('✅ Redis cache initialized');
+    } else {
+      logger.warn('⚠️  Redis cache not available - running without cache');
+    }
+  } catch (error) {
+    logger.error('❌ Redis initialization failed, continuing without cache', error);
+  }
 
   // Initialize single election system
   try {

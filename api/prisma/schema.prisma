@@ -6,6 +6,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Connection pooling configured in Prisma Client instantiation
 }
 
 model User {
@@ -55,6 +56,9 @@ model Voter {
   smsMessages      SmsMessage[]
   auditLogs        AuditLog[]
 
+  @@index([status])
+  @@index([hasVoted])
+  @@index([phone])
   @@map("voters")
 }
 
@@ -84,6 +88,9 @@ model Election {
   disputes             Dispute[]
   auditLogs            AuditLog[]
 
+  @@index([status])
+  @@index([startAt])
+  @@index([endAt])
   @@map("elections")
 }
 
@@ -145,6 +152,9 @@ model Ballot {
   votes      Vote[]
 
   @@unique([electionId, voterId])
+  @@index([electionId])
+  @@index([voterId])
+  @@index([castAt])
   @@map("ballots")
 }
 
@@ -161,6 +171,9 @@ model Vote {
   candidate   Candidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull)
 
   @@unique([ballotId, positionId])
+  @@index([positionId])
+  @@index([candidateId])
+  @@index([castAt])
   @@map("votes")
 }
 
@@ -200,6 +213,9 @@ model SmsMessage {
   // Relations
   voter           Voter?        @relation(fields: [voterId], references: [id], onDelete: SetNull)
 
+  @@index([status])
+  @@index([voterId])
+  @@index([createdAt])
   @@map("sms_messages")
 }
 
@@ -246,6 +262,11 @@ model AuditLog {
   voter      Voter?     @relation(fields: [voterId], references: [id], onDelete: SetNull)
   election   Election?  @relation(fields: [electionId], references: [id], onDelete: SetNull)
 
+  @@index([timestamp])
+  @@index([electionId])
+  @@index([userId])
+  @@index([voterId])
+  @@index([action])
   @@map("audit_logs")
 }
 
