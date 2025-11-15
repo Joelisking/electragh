@@ -181,6 +181,8 @@ router.post('/login', authRateLimiter, async (req, res, next) => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
+    logger.info(`[Login] Set cookies - secure: ${cookieOptions.secure}, sameSite: ${cookieOptions.sameSite}, path: ${cookieOptions.path}`);
+
     res.json({
       user: {
         id: user.id,
@@ -303,6 +305,8 @@ router.post('/verify-otp', async (req, res, next) => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
+    logger.info(`[OTP Login] Set cookies - secure: ${cookieOptions.secure}, sameSite: ${cookieOptions.sameSite}, path: ${cookieOptions.path}`);
+
     res.json({
       message: 'OTP verified successfully',
       user: {
@@ -376,7 +380,10 @@ router.post('/verify-otp', async (req, res, next) => {
  */
 router.post('/refresh', async (req, res, next) => {
   try {
-    const { refreshToken } = req.body;
+    // Try to get refresh token from cookie first, then fall back to request body
+    const refreshToken = req.cookies?.['admin-refresh-token'] || req.body.refreshToken;
+
+    logger.info(`[Refresh Token] Cookie: ${req.cookies?.['admin-refresh-token'] ? 'present' : 'missing'}, Body: ${req.body.refreshToken ? 'present' : 'missing'}`);
 
     if (!refreshToken) {
       throw new ValidationError('Refresh token required');
@@ -407,6 +414,19 @@ router.post('/refresh', async (req, res, next) => {
       process.env.JWT_SECRET!,
       { expiresIn: '1h' }
     );
+
+    // Set the new access token in cookie
+    const cookieOptions: any = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/',
+    };
+
+    res.cookie('admin-token', accessToken, {
+      ...cookieOptions,
+      maxAge: 60 * 60 * 1000, // 1 hour
+    });
 
     res.json({
       accessToken,

@@ -394,15 +394,17 @@ router.post(
         );
       }
 
+      const now = new Date();
       const updatedElection = await prisma.election.update({
         where: { id: req.params.id },
         data: {
           status: 'ACTIVE',
+          startAt: now, // Set start time to now when manually starting
         },
       });
 
       logger.info(
-        `Election started: ${election.id} by user ${req.user!.id}`
+        `Election started: ${election.id} by user ${req.user!.id} at ${now.toISOString()}`
       );
 
       res.json({

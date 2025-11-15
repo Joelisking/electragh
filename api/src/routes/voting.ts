@@ -408,6 +408,31 @@ router.get(
   authenticateVoter,
   async (req: AuthenticatedRequest, res, next) => {
     try {
+      const now = new Date();
+      logger.info(`[Get Election] Current time: ${now.toISOString()}`);
+
+      // First, let's see if there are ANY active elections
+      const activeElections = await prisma.election.findMany({
+        where: { status: 'ACTIVE' },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          startAt: true,
+          endAt: true,
+        },
+      });
+
+      logger.info(`[Get Election] Found ${activeElections.length} ACTIVE elections`);
+      activeElections.forEach((e) => {
+        logger.info(
+          `[Get Election] Election: ${e.title} (${e.id}) - Status: ${e.status}, Start: ${e.startAt.toISOString()}, End: ${e.endAt.toISOString()}`
+        );
+        logger.info(
+          `[Get Election] Time checks - startAt <= now: ${e.startAt <= now}, endAt > now: ${e.endAt > now}`
+        );
+      });
+
       const currentElection = await prisma.election.findFirst({
         where: {
           status: 'ACTIVE',
@@ -436,8 +461,11 @@ router.get(
       });
 
       if (!currentElection) {
+        logger.warn('[Get Election] No election matched all criteria (ACTIVE + time range)');
         throw new NotFoundError('No active election found');
       }
+
+      logger.info(`[Get Election] Found current election: ${currentElection.title} (${currentElection.id})`);
 
       // Check if voter has already voted
       const existingBallot = await prisma.ballot.findUnique({
