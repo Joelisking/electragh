@@ -79,7 +79,11 @@ export const verifyOtpSchema = z.object({
 // Voting validation schemas
 export const castVoteSchema = z.object({
   positionId: z.string().cuid(),
-  candidateId: z.union([z.string().cuid(), z.null()]), // null for abstain
+  candidateId: z.union([
+    z.string().cuid(),
+    z.null(),
+    z.literal('') // Allow empty string for abstain from frontend
+  ]).transform(val => val === '' ? null : val), // Convert empty string to null
 });
 
 // Dispute validation schemas
