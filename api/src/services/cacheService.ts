@@ -8,27 +8,28 @@ import { logger } from '../utils/logger';
 
 let redisClient: Redis | null = null;
 
-// Cache configuration
+// Cache configuration optimized for 48-hour voting period with 3,000+ voters
 const CACHE_CONFIG = {
-  // Election data - rarely changes during voting period
-  ELECTION: { ttl: 300, key: 'election:single' }, // 5 minutes
-  ELECTION_DETAILS: { ttl: 180, key: 'election:details' }, // 3 minutes
+  // Election data - never changes during 48-hour voting period
+  ELECTION: { ttl: 7200, key: 'election:single' }, // 2 hours (election details are completely static)
+  ELECTION_DETAILS: { ttl: 7200, key: 'election:details' }, // 2 hours
 
-  // Positions and candidates - static during voting
-  POSITIONS: { ttl: 600, key: 'positions:all' }, // 10 minutes
-  CANDIDATES: { ttl: 600, key: 'candidates:all' }, // 10 minutes
-  CANDIDATES_BY_POSITION: { ttl: 600, prefix: 'candidates:position:' }, // 10 minutes
+  // Positions and candidates - completely static during voting (never change)
+  POSITIONS: { ttl: 28800, key: 'positions:all' }, // 8 hours (static data, aggressive caching)
+  CANDIDATES: { ttl: 28800, key: 'candidates:all' }, // 8 hours (static data, aggressive caching)
+  CANDIDATES_BY_POSITION: { ttl: 28800, prefix: 'candidates:position:' }, // 8 hours
 
-  // Vote counts - update frequently during active voting
-  VOTE_COUNTS: { ttl: 30, prefix: 'votes:count:' }, // 30 seconds
-  TURNOUT_STATS: { ttl: 60, key: 'stats:turnout' }, // 1 minute
+  // Vote counts - update frequently but can tolerate slight delay for performance
+  // With 48 hours, voters are less likely to refresh constantly
+  VOTE_COUNTS: { ttl: 180, prefix: 'votes:count:' }, // 3 minutes (balance freshness/performance)
+  TURNOUT_STATS: { ttl: 300, key: 'stats:turnout' }, // 5 minutes (turnout updates)
 
   // Voter status - to prevent duplicate voting checks
-  VOTER_STATUS: { ttl: 120, prefix: 'voter:status:' }, // 2 minutes
+  VOTER_STATUS: { ttl: 600, prefix: 'voter:status:' }, // 10 minutes (voter state rarely changes)
 
-  // Results - cache heavily when election is not active
-  RESULTS_SUMMARY: { ttl: 60, key: 'results:summary' }, // 1 minute
-  RESULTS_BY_POSITION: { ttl: 60, prefix: 'results:position:' }, // 1 minute
+  // Results - cache heavily to handle result page traffic spikes
+  RESULTS_SUMMARY: { ttl: 300, key: 'results:summary' }, // 5 minutes (results can tolerate delay)
+  RESULTS_BY_POSITION: { ttl: 300, prefix: 'results:position:' }, // 5 minutes
 };
 
 /**
