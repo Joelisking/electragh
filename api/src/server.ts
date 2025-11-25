@@ -88,8 +88,19 @@ app.get('/health', async (req, res) => {
 
 // Handle OPTIONS requests from Cloud Run internal services BEFORE CORS middleware
 // This prevents CORS errors from GCP health checks and monitoring
-app.options('*', (_req, res) => {
-  res.header('Access-Control-Allow-Origin', '*');
+// IMPORTANT: Use specific origin instead of '*' to support credentials
+app.options('*', (req, res) => {
+  const origin = req.headers.origin;
+
+  // Return the requesting origin (validated by CORS middleware after this)
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  } else {
+    // No origin (like health checks) - allow all
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers');
   res.header('Access-Control-Max-Age', '86400'); // 24 hours
@@ -126,9 +137,10 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    // In development, allow all localhost origins
+    // In development, allow all localhost origins (including any port)
     if (process.env.NODE_ENV === 'development') {
       if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+        logger.debug(`CORS: Allowing development origin: ${origin}`);
         return callback(null, true);
       }
     }
@@ -149,6 +161,7 @@ const corsOptions = {
       : ['http://localhost:3000'];
 
     if (allowedOrigins.includes(origin)) {
+      logger.debug(`CORS: Allowing configured origin: ${origin}`);
       return callback(null, true);
     }
 
@@ -156,6 +169,7 @@ const corsOptions = {
     logger.warn(`CORS: Rejected origin: ${origin}`, {
       allowedOrigins,
       environment: process.env.NODE_ENV,
+      nodeEnvType: typeof process.env.NODE_ENV,
     });
 
     // Return false instead of throwing error to prevent 500 status codes
