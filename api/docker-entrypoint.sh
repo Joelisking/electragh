@@ -22,10 +22,13 @@ fi
 
 echo "✅ Database is ready!"
 
-# Run database migrations and generate Prisma client
-echo "🔄 Running database migrations..."
-npx prisma generate
-npx prisma db push --accept-data-loss
+# Run database migrations (skip if SKIP_MIGRATIONS=true)
+if [ "$SKIP_MIGRATIONS" != "true" ]; then
+  echo "🔄 Running database migrations..."
+  npx prisma db push --accept-data-loss --skip-generate
+else
+  echo "⏭️  Skipping database migrations (SKIP_MIGRATIONS=true)"
+fi
 
 # Seed database if environment variable is set
 if [ "$SEED_DATABASE" = "true" ]; then
