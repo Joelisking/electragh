@@ -3,13 +3,12 @@ set -e
 
 echo "🚀 Starting Ghana Election Platform API..."
 
-# Run database migrations only if explicitly enabled (skip if SKIP_MIGRATIONS=true or unset)
-# This prevents slow startups in production where schema is already deployed
-if [ "$RUN_MIGRATIONS" = "true" ]; then
+# Run database migrations (skip only if SKIP_MIGRATIONS=true)
+if [ "$SKIP_MIGRATIONS" = "true" ]; then
+  echo "⏭️  Skipping database migrations (SKIP_MIGRATIONS=true)"
+else
   echo "🔄 Running database migrations..."
   npx prisma db push --accept-data-loss --skip-generate
-else
-  echo "⏭️  Skipping database migrations (set RUN_MIGRATIONS=true to enable)"
 fi
 
 # Seed database if environment variable is set
