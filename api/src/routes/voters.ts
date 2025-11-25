@@ -10,7 +10,6 @@ import {
 import {
   createVoterSchema,
   importVotersSchema,
-  ghanaPhoneSchema,
 } from '../utils/validation';
 import {
   ValidationError,
@@ -655,8 +654,15 @@ router.post(
         let headerRowIndex = -1;
         for (let i = 0; i < Math.min(5, jsonData.length); i++) {
           const row = jsonData[i];
-          const rowStr = row.map((cell: any) => String(cell).toLowerCase()).join('|');
-          if (rowStr.includes('name') || rowStr.includes('phone') || rowStr.includes('code') || rowStr.includes('reference')) {
+          const rowStr = row
+            .map((cell: any) => String(cell).toLowerCase())
+            .join('|');
+          if (
+            rowStr.includes('name') ||
+            rowStr.includes('phone') ||
+            rowStr.includes('code') ||
+            rowStr.includes('reference')
+          ) {
             headerRowIndex = i;
             break;
           }
@@ -670,30 +676,55 @@ router.post(
 
         // Normalize headers to match expected format
         const headers = jsonData[headerRowIndex].map((h: string) => {
-          const normalized = String(h).toLowerCase().replace(/[·\s]+/g, '_').replace(/[^\w_]/g, '');
+          const normalized = String(h)
+            .toLowerCase()
+            .replace(/[·\s]+/g, '_')
+            .replace(/[^\w_]/g, '');
           // Map common variations to expected fields
           if (normalized.includes('name')) return 'full_name';
-          if (normalized.includes('phone') || normalized.includes('number')) return 'phone';
-          if (normalized.includes('code') || normalized.includes('reference')) return 'unique_id';
-          if (normalized.includes('class') || normalized.includes('year') || normalized.includes('group')) return 'class_year_group';
+          if (
+            normalized.includes('phone') ||
+            normalized.includes('number')
+          )
+            return 'phone';
+          if (
+            normalized.includes('code') ||
+            normalized.includes('reference')
+          )
+            return 'unique_id';
+          if (
+            normalized.includes('class') ||
+            normalized.includes('year') ||
+            normalized.includes('group')
+          )
+            return 'class_year_group';
           return normalized;
         });
 
         // Convert data rows to object format
-        votersData = jsonData.slice(headerRowIndex + 1).map((row) => {
-          const obj: any = {};
-          headers.forEach((header: string, index: number) => {
-            if (row[index] !== undefined && row[index] !== null && row[index] !== '') {
-              // Clean up values: replace middle dots with spaces, trim whitespace
-              obj[header] = String(row[index]).replace(/·/g, ' ').trim();
+        votersData = jsonData
+          .slice(headerRowIndex + 1)
+          .map((row) => {
+            const obj: any = {};
+            headers.forEach((header: string, index: number) => {
+              if (
+                row[index] !== undefined &&
+                row[index] !== null &&
+                row[index] !== ''
+              ) {
+                // Clean up values: replace middle dots with spaces, trim whitespace
+                obj[header] = String(row[index])
+                  .replace(/·/g, ' ')
+                  .trim();
+              }
+            });
+            // Add year group if we extracted it and no class_year_group column exists
+            if (yearGroup && !obj.class_year_group) {
+              obj.class_year_group = yearGroup;
             }
-          });
-          // Add year group if we extracted it and no class_year_group column exists
-          if (yearGroup && !obj.class_year_group) {
-            obj.class_year_group = yearGroup;
-          }
-          return obj;
-        }).filter((obj) => obj.full_name || obj.phone); // Filter out empty rows
+            return obj;
+          })
+          .filter((obj) => obj.full_name || obj.phone); // Filter out empty rows
       }
 
       // Validate and normalize data
@@ -708,9 +739,9 @@ router.post(
           // Normalize phone number
           let phone = row.phone?.toString().trim();
           if (phone) {
-            // Only add +233 if the number doesn't already start with + (international format) or 0 (local format)
-            if (!phone.startsWith('+') && !phone.startsWith('0')) {
-              phone = '+233' + phone;
+            // Only add +233 if the number doesn't already start with + (international format)
+            if (!phone.startsWith('+')) {
+              phone = '+' + phone;
             }
           }
 
