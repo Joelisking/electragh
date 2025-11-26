@@ -18,6 +18,7 @@ import votingRoutes from './routes/voting';
 import resultsRoutes from './routes/results';
 import disputeRoutes from './routes/disputes';
 import adminRoutes from './routes/admin';
+import webhookRoutes from './routes/webhooks';
 import docsRoutes from './openapi';
 
 // Import middleware
@@ -231,6 +232,7 @@ app.use('/api/voting', votingRoutes);
 app.use('/api/results', resultsRoutes);
 app.use('/api/disputes', disputeRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 // API Documentation
 app.use('/docs', docsRoutes);

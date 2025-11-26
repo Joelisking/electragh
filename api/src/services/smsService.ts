@@ -1,4 +1,61 @@
+/**
+ * ============================================================================
+ * SMS SERVICE - MULTI-PROVIDER ROUTING AND FALLBACK SYSTEM
+ * ============================================================================
+ *
+ * This service handles SMS delivery through multiple providers with automatic
+ * routing based on destination country and fallback capabilities.
+ *
+ * CURRENT PROVIDER CONFIGURATION (as of deployment):
+ * --------------------------------------------------
+ * 1. African Countries (Ghana +233, Kenya +254, Tanzania +255, Nigeria +234, South Africa +27)
+ *    PRIMARY: Arkesel SMS API
+ *    FALLBACK: None
+ *
+ * 2. US & Canada (+1)
+ *    PRIMARY: WhatsApp Business API (Facebook Graph API v21.0)
+ *    FALLBACK: Twilio Messaging Service (if WhatsApp fails)
+ *    REASON: Twilio A2P campaign is under review
+ *
+ * 3. Other International Numbers (UK, Europe, Asia, etc.)
+ *    PRIMARY: Twilio Messaging Service
+ *    FALLBACK: None (WhatsApp only used for US/Canada)
+ *
+ * HOW TO SWITCH US/CANADA FROM WHATSAPP TO TWILIO:
+ * -------------------------------------------------
+ * When Twilio A2P campaign is approved:
+ *
+ * 1. Update getCountryFromPhone() method (around line 819):
+ *    FROM: if (cleaned.startsWith('1')) { return 'WHATSAPP'; }
+ *    TO:   if (cleaned.startsWith('1')) { return 'TWILIO'; }
+ *
+ * 2. Update getProviderName() method (around line 122):
+ *    FROM: if (cleaned.startsWith('1')) { return 'whatsapp'; }
+ *    TO:   if (cleaned.startsWith('1')) { return 'twilio'; }
+ *
+ * 3. Restart the API server
+ *
+ * 4. Verify in .env that TWILIO_MESSAGING_SERVICE_SID is configured
+ *
+ * 5. (Optional) Set TWILIO_WEBHOOK_URL in production for delivery tracking
+ *
+ * The fallback logic will automatically use WhatsApp as backup if Twilio fails.
+ *
+ * FEATURES:
+ * ---------
+ * - Automatic provider routing based on phone number country code
+ * - Fallback providers for US/Canada numbers
+ * - Database logging for all messages (non-blocking)
+ * - Twilio webhook support for delivery status tracking
+ * - OTP verification support (Arkesel server-side, Twilio Verify, local fallback)
+ * - Message templates for OTP, vote confirmation, and election reminders
+ *
+ * ============================================================================
+ */
+
 import { logger } from '../utils/logger';
+import { prisma } from '../server';
+import { SmsType, SmsStatus } from '@prisma/client';
 
 export interface SmsProvider {
   sendSms(
@@ -28,10 +85,42 @@ class SmsService {
     this.provider = provider;
   }
 
+  private async logMessageToDatabase(
+    to: string,
+    message: string,
+    type: SmsType,
+    provider: string,
+    result: SmsResult,
+    voterId?: string
+  ): Promise<void> {
+    try {
+      const status: SmsStatus = result.success ? 'SENT' : 'FAILED';
+
+      await prisma.smsMessage.create({
+        data: {
+          voterId,
+          type,
+          to,
+          body: message,
+          provider,
+          status,
+          providerMsgId: result.messageId,
+          sentAt: result.success ? new Date() : null,
+          failedAt: !result.success ? new Date() : null,
+          error: result.error,
+        },
+      });
+    } catch (error) {
+      // Don't fail the SMS send if database logging fails
+      logger.error('Failed to log SMS to database:', error);
+    }
+  }
+
   async sendOtp(
     to: string,
     code: string,
-    voterName: string
+    voterName: string,
+    voterId?: string
   ): Promise<SmsResult> {
     const message = `Hello ${voterName},\n\nYour OTP for Ghana Election is: ${code}\n\nThis code expires in 5 minutes.\n\nElectoral Commission`;
     const result = await this.provider.sendSms(
@@ -39,6 +128,12 @@ class SmsService {
       message,
       'OTP_CODE'
     );
+
+    // Determine provider name
+    const providerName = this.getProviderName(to);
+
+    // Log to database
+    await this.logMessageToDatabase(to, message, 'OTP_CODE', providerName, result, voterId);
 
     // If using fallback SMS, store the generated OTP for verification
     if (
@@ -59,22 +154,59 @@ class SmsService {
     return result;
   }
 
+  private getProviderName(phone: string): string {
+    const cleaned = phone.replace(/\D/g, '');
+    const arkeselCountryCodes = ['233', '254', '255', '234', '27'];
+
+    for (const code of arkeselCountryCodes) {
+      if (cleaned.startsWith(code)) {
+        return 'arkesel';
+      }
+    }
+
+    // ============================================================================
+    // PROVIDER NAME FOR DATABASE LOGGING
+    // ============================================================================
+    // IMPORTANT: This must match the actual primary provider being used
+    // CURRENT: WhatsApp is primary for US/Canada (+1)
+    // TO UPDATE: When switching to Twilio, change 'whatsapp' to 'twilio' below
+    // ============================================================================
+
+    // US/Canada - Currently using WhatsApp as primary
+    if (cleaned.startsWith('1')) {
+      return 'whatsapp'; // CHANGE TO 'twilio' when A2P campaign is approved
+    }
+
+    // All other international numbers use Twilio
+    return 'twilio';
+  }
+
   async sendVoteConfirmation(
     to: string,
-    voterName: string
+    voterName: string,
+    voterId?: string
   ): Promise<SmsResult> {
     const message = `Hello ${voterName},\n\nYour vote has been successfully recorded. Thank you for participating in the election.\n\nElectoral Commission`;
-    return await this.provider.sendSms(
+    const result = await this.provider.sendSms(
       to,
       message,
       'VOTE_CONFIRMATION'
     );
+
+    // Determine provider name
+    const providerName = this.getProviderName(to);
+
+    // Log to database
+    await this.logMessageToDatabase(to, message, 'VOTE_CONFIRMATION', providerName, result, voterId);
+
+    return result;
   }
 
   async sendElectionReminder(
     to: string,
     voterName: string,
-    type: 'OPEN' | 'MIDWAY' | 'NEAR_END' | 'END'
+    type: 'OPEN' | 'MIDWAY' | 'NEAR_END' | 'END',
+    voterId?: string
   ): Promise<SmsResult> {
     let message = '';
 
@@ -93,7 +225,15 @@ class SmsService {
         break;
     }
 
-    return await this.provider.sendSms(to, message, `VOTE_${type}`);
+    const result = await this.provider.sendSms(to, message, `VOTE_${type}`);
+
+    // Determine provider name
+    const providerName = this.getProviderName(to);
+
+    // Log to database
+    await this.logMessageToDatabase(to, message, 'VOTE_REMINDER', providerName, result, voterId);
+
+    return result;
   }
 
   async verifyOtp(to: string, code: string): Promise<boolean> {
@@ -181,7 +321,8 @@ class ArkeselSmsProvider implements SmsProvider {
     type: string
   ): Promise<SmsResult> {
     try {
-      // Format phone number for Ghana (ensure it starts with 233)
+      // Format phone number for African countries
+      // Supports: Ghana (+233), Kenya (+254), Tanzania (+255), Nigeria (+234), South Africa (+27)
       const formattedPhone = this.formatPhoneNumber(to);
 
       // Check if this is an OTP message
@@ -471,18 +612,29 @@ class ArkeselSmsProvider implements SmsProvider {
     // Remove any non-digit characters
     let cleaned = phone.replace(/\D/g, '');
 
-    // If it starts with +233, remove it
-    if (cleaned.startsWith('233')) {
-      cleaned = cleaned.substring(3);
+    // African country codes
+    const africanCountryCodes = ['233', '254', '255', '234', '27'];
+
+    // Check if already has a country code
+    for (const code of africanCountryCodes) {
+      if (cleaned.startsWith(code)) {
+        return cleaned; // Already formatted correctly
+      }
     }
 
-    // If it starts with 0, remove it
+    // If starts with 0 (local number), remove it
     if (cleaned.startsWith('0')) {
       cleaned = cleaned.substring(1);
     }
 
-    // Ensure it starts with 233
-    if (!cleaned.startsWith('233')) {
+    // Try to detect country code based on number length and pattern
+    // This is a fallback - ideally the number should already include country code
+    // For now, default to Ghana (233) if no country code is detected
+    // In production, you should enforce international format from the frontend
+    if (!cleaned.match(/^(233|254|255|234|27)/)) {
+      logger.warn(
+        `Phone number ${phone} doesn't have a valid African country code, defaulting to Ghana (+233)`
+      );
       cleaned = `233${cleaned}`;
     }
 
@@ -490,15 +642,22 @@ class ArkeselSmsProvider implements SmsProvider {
   }
 }
 
-// Twilio Verify provider for international numbers
-class TwilioVerifyProvider implements SmsProvider {
+// Twilio SMS provider for international numbers (supports both OTP and regular SMS)
+class TwilioSmsProvider implements SmsProvider {
   private twilioClient: any;
-  private verifyServiceSid: string;
+  private verifyServiceSid?: string;
+  private messagingServiceSid?: string;
 
-  constructor(accountSid: string, authToken: string, verifyServiceSid: string) {
+  constructor(
+    accountSid: string,
+    authToken: string,
+    verifyServiceSid?: string,
+    messagingServiceSid?: string
+  ) {
     const twilio = require('twilio');
     this.twilioClient = twilio(accountSid, authToken);
     this.verifyServiceSid = verifyServiceSid;
+    this.messagingServiceSid = messagingServiceSid;
   }
 
   async sendSms(
@@ -507,8 +666,13 @@ class TwilioVerifyProvider implements SmsProvider {
     type: string
   ): Promise<SmsResult> {
     try {
-      // For OTP messages, use Twilio Verify
-      if (type === 'OTP_CODE' || message.includes('%otp_code%') || /\d{4,6}/.test(message)) {
+      // For OTP messages, use Twilio Verify if available
+      if (
+        (type === 'OTP_CODE' ||
+          message.includes('%otp_code%') ||
+          /\d{4,6}/.test(message)) &&
+        this.verifyServiceSid
+      ) {
         const verification = await this.twilioClient.verify.v2
           .services(this.verifyServiceSid)
           .verifications.create({
@@ -525,12 +689,37 @@ class TwilioVerifyProvider implements SmsProvider {
           messageId: verification.sid,
         };
       } else {
-        // For non-OTP messages, we would need regular SMS (not implemented in this version)
-        // Since this provider is specifically for OTP via Verify, we'll return an error
-        throw new Error('Twilio Verify provider only supports OTP messages');
+        // For non-OTP messages, use Twilio Messaging Service (A2P for US/Canada)
+        if (!this.messagingServiceSid) {
+          throw new Error(
+            'Twilio Messaging Service SID not configured for non-OTP messages'
+          );
+        }
+
+        const messageParams: any = {
+          messagingServiceSid: this.messagingServiceSid,
+          to: to,
+          body: message,
+        };
+
+        // Add StatusCallback webhook URL if TWILIO_WEBHOOK_URL is configured
+        if (process.env.TWILIO_WEBHOOK_URL) {
+          messageParams.statusCallback = `${process.env.TWILIO_WEBHOOK_URL}/api/webhooks/twilio/status`;
+        }
+
+        const messageResponse = await this.twilioClient.messages.create(messageParams);
+
+        logger.info(
+          `Twilio SMS sent successfully to ${to}, message SID: ${messageResponse.sid}, status: ${messageResponse.status}`
+        );
+
+        return {
+          success: true,
+          messageId: messageResponse.sid,
+        };
       }
     } catch (error) {
-      logger.error('Twilio Verify error:', error);
+      logger.error('Twilio SMS error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -539,6 +728,14 @@ class TwilioVerifyProvider implements SmsProvider {
   }
 
   async verifyOtp(to: string, code: string): Promise<boolean> {
+    // Only works if Verify service is configured
+    if (!this.verifyServiceSid) {
+      logger.warn(
+        'Twilio Verify service not configured, cannot verify OTP'
+      );
+      return false;
+    }
+
     try {
       const verificationCheck = await this.twilioClient.verify.v2
         .services(this.verifyServiceSid)
@@ -552,7 +749,9 @@ class TwilioVerifyProvider implements SmsProvider {
       if (isApproved) {
         logger.info(`Twilio Verify OTP verification successful for ${to}`);
       } else {
-        logger.warn(`Twilio Verify OTP verification failed for ${to}: status ${verificationCheck.status}`);
+        logger.warn(
+          `Twilio Verify OTP verification failed for ${to}: status ${verificationCheck.status}`
+        );
       }
 
       return isApproved;
@@ -563,26 +762,18 @@ class TwilioVerifyProvider implements SmsProvider {
   }
 }
 
-// Composite SMS provider that routes to appropriate service based on phone number
-class CompositeOtpProvider implements SmsProvider {
-  private localProvider: SmsProvider;
-  private internationalProvider: SmsProvider;
+// WhatsApp Business API provider for US and Canada (Facebook API)
+class WhatsAppBusinessProvider implements SmsProvider {
+  private accessToken: string;
+  private phoneNumberId: string;
+  private apiUrl: string;
+  private apiVersion: string;
 
-  constructor(localProvider: SmsProvider, internationalProvider: SmsProvider) {
-    this.localProvider = localProvider;
-    this.internationalProvider = internationalProvider;
-  }
-
-  private isGhanaNumber(phone: string): boolean {
-    // Remove any non-digit characters
-    const cleaned = phone.replace(/\D/g, '');
-
-    // Check if it's a Ghana number (starts with 233 or is a local number)
-    return (
-      cleaned.startsWith('233') ||
-      (cleaned.length === 9 && !cleaned.startsWith('233')) ||
-      phone.startsWith('0')
-    );
+  constructor(accessToken: string, phoneNumberId: string, apiVersion?: string) {
+    this.accessToken = accessToken;
+    this.phoneNumberId = phoneNumberId;
+    this.apiVersion = apiVersion || 'v18.0';
+    this.apiUrl = `https://graph.facebook.com/${this.apiVersion}/${phoneNumberId}/messages`;
   }
 
   async sendSms(
@@ -590,26 +781,254 @@ class CompositeOtpProvider implements SmsProvider {
     message: string,
     type: string
   ): Promise<SmsResult> {
-    if (this.isGhanaNumber(to)) {
-      logger.info(`Using local SMS provider for Ghana number: ${to}`);
-      return await this.localProvider.sendSms(to, message, type);
-    } else {
-      logger.info(`Using Twilio Verify for international number: ${to}`);
-      return await this.internationalProvider.sendSms(to, message, type);
+    try {
+      // Format phone number (remove any non-digits and ensure it has country code)
+      let formattedPhone = to.replace(/\D/g, '');
+
+      // Ensure it starts with country code (no + sign for Facebook API)
+      if (!formattedPhone.startsWith('1') && formattedPhone.length === 10) {
+        formattedPhone = `1${formattedPhone}`; // Add US country code
+      }
+
+      // ============================================================================
+      // WhatsApp Business API Template Message Support
+      // ============================================================================
+      // WhatsApp requires approved templates for messages outside 24-hour window
+      // Template names available:
+      // - election_start_notification: For election start reminders
+      // - Add more templates as needed
+      // ============================================================================
+
+      let payload: any;
+
+      // Use template message for known types to avoid 24-hour window restrictions
+      if (type === 'VOTE_OPEN' || type === 'ADMIN_NOTIFICATION' || message.includes('OPEN')) {
+        // Extract voter name from message if available
+        // Format: "Hello {name},\n\nVoting is now OPEN! Cast your vote at [VOTING_URL]\n\nElectoral Commission"
+        let voterName = 'Voter'; // Default fallback
+        const helloMatch = message.match(/^Hello\s+([^,]+),/);
+        if (helloMatch) {
+          voterName = helloMatch[1].trim();
+        }
+
+        const electionName = 'AGOSA EC Election';
+        const closingTime = 'November 30, 2025 at 11:59pm';
+
+        // Use approved template for election start notification
+        payload = {
+          messaging_product: 'whatsapp',
+          to: formattedPhone,
+          type: 'template',
+          template: {
+            name: 'election_start_notification',
+            language: {
+              code: 'en', // or 'en_US' depending on your template configuration
+            },
+            components: [
+              {
+                type: 'body',
+                parameters: [
+                  {
+                    type: 'text',
+                    text: voterName, // {{1}} - Voter name
+                  },
+                  {
+                    type: 'text',
+                    text: electionName, // {{2}} - Election name
+                  },
+                  {
+                    type: 'text',
+                    text: closingTime, // {{3}} - Closing date/time
+                  },
+                ],
+              },
+            ],
+          },
+        };
+        logger.info(`Using WhatsApp template 'election_start_notification' for ${to} with params: ${voterName}, ${electionName}, ${closingTime}`);
+      } else {
+        // Fallback to text message (only works within 24-hour window)
+        payload = {
+          messaging_product: 'whatsapp',
+          to: formattedPhone,
+          type: 'text',
+          text: {
+            body: message,
+          },
+        };
+        logger.warn(`Using WhatsApp text message for ${to} - only works within 24-hour window`);
+      }
+
+      const response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          `WhatsApp API error: ${responseData.error?.message || response.statusText}`
+        );
+      }
+
+      logger.info(
+        `WhatsApp message sent successfully to ${to}, message ID: ${responseData.messages?.[0]?.id || 'unknown'}`
+      );
+
+      return {
+        success: true,
+        messageId: responseData.messages?.[0]?.id || `whatsapp_${Date.now()}`,
+      };
+    } catch (error) {
+      logger.error('WhatsApp Business API error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  // WhatsApp doesn't support automatic OTP verification
+  // Will rely on local verification fallback
+}
+
+// Composite SMS provider that routes to appropriate service based on phone number
+class CompositeOtpProvider implements SmsProvider {
+  private arkeselProvider: SmsProvider; // For Ghana, Kenya, Tanzania, Nigeria, South Africa
+  private whatsappProvider: SmsProvider; // For US and Canada
+  private twilioProvider: SmsProvider; // For other international numbers
+
+  constructor(
+    arkeselProvider: SmsProvider,
+    whatsappProvider: SmsProvider,
+    twilioProvider: SmsProvider
+  ) {
+    this.arkeselProvider = arkeselProvider;
+    this.whatsappProvider = whatsappProvider;
+    this.twilioProvider = twilioProvider;
+  }
+
+  private getCountryFromPhone(phone: string): 'ARKESEL' | 'WHATSAPP' | 'TWILIO' {
+    // Remove any non-digit characters
+    const cleaned = phone.replace(/\D/g, '');
+
+    // African countries that should use Arkesel
+    // Ghana: +233, Kenya: +254, Tanzania: +255, Nigeria: +234, South Africa: +27
+    const arkeselCountryCodes = ['233', '254', '255', '234', '27'];
+
+    // Check for Arkesel-supported countries (African countries)
+    for (const code of arkeselCountryCodes) {
+      if (cleaned.startsWith(code)) {
+        return 'ARKESEL';
+      }
+    }
+
+    // ============================================================================
+    // PRIMARY PROVIDER FOR US/CANADA NUMBERS (+1)
+    // ============================================================================
+    // CURRENT: WhatsApp Business API (Facebook Graph API)
+    // REASON: Twilio A2P campaign is still under review
+    //
+    // TO SWITCH TO TWILIO (when A2P campaign is approved):
+    // 1. Change the code below from:
+    //    if (cleaned.startsWith('1')) { return 'WHATSAPP'; }
+    //    to:
+    //    if (cleaned.startsWith('1')) { return 'TWILIO'; }
+    // 2. The fallback logic in sendSms() will automatically use WhatsApp as backup
+    // 3. Ensure TWILIO_MESSAGING_SERVICE_SID is set in .env
+    // 4. Optionally set TWILIO_WEBHOOK_URL for delivery tracking
+    // ============================================================================
+
+    // US and Canada (+1) - Currently using WhatsApp, will switch to Twilio when A2P approved
+    if (cleaned.startsWith('1')) {
+      return 'WHATSAPP'; // CHANGE TO 'TWILIO' when A2P campaign is approved
+    }
+
+    // All other international numbers use Twilio
+    return 'TWILIO';
+  }
+
+  async sendSms(
+    to: string,
+    message: string,
+    type: string
+  ): Promise<SmsResult> {
+    const provider = this.getCountryFromPhone(to);
+
+    switch (provider) {
+      case 'ARKESEL':
+        logger.info(`Using Arkesel for African number: ${to}`);
+        return await this.arkeselProvider.sendSms(to, message, type);
+
+      case 'WHATSAPP':
+        // ============================================================================
+        // US/CANADA PRIMARY PROVIDER: WhatsApp Business API
+        // ============================================================================
+        // CURRENT SETUP: WhatsApp is PRIMARY for US/Canada (+1 numbers)
+        // This case handles when getCountryFromPhone() returns 'WHATSAPP'
+        //
+        // FALLBACK: If WhatsApp fails, Twilio will be tried as backup (see below)
+        // ============================================================================
+        logger.info(`Using WhatsApp Business API for US/Canada number: ${to}`);
+        const whatsappResult = await this.whatsappProvider.sendSms(to, message, type);
+
+        // If WhatsApp fails for US/Canada, try Twilio as backup
+        if (!whatsappResult.success && to.replace(/\D/g, '').startsWith('1')) {
+          logger.warn(`WhatsApp failed for US/Canada number ${to}, attempting Twilio fallback`);
+          return await this.twilioProvider.sendSms(to, message, type);
+        }
+
+        return whatsappResult;
+
+      case 'TWILIO':
+      default:
+        // ============================================================================
+        // TWILIO FOR OTHER INTERNATIONAL NUMBERS (non-US/Canada/Africa)
+        // ============================================================================
+        // When A2P campaign is approved and you switch US/Canada to TWILIO:
+        // 1. Change getCountryFromPhone() to return 'TWILIO' for +1 numbers
+        // 2. This case will handle US/Canada with automatic WhatsApp fallback
+        // 3. The fallback logic below will activate if Twilio fails for US/Canada
+        // ============================================================================
+        logger.info(`Using Twilio SMS for international number: ${to}`);
+        const twilioResult = await this.twilioProvider.sendSms(to, message, type);
+
+        // If Twilio fails for US/Canada numbers (+1), try WhatsApp as backup
+        if (!twilioResult.success && to.replace(/\D/g, '').startsWith('1')) {
+          logger.warn(`Twilio failed for US/Canada number ${to}, attempting WhatsApp fallback`);
+          return await this.whatsappProvider.sendSms(to, message, type);
+        }
+
+        return twilioResult;
     }
   }
 
   async verifyOtp?(to: string, code: string): Promise<boolean> {
-    if (this.isGhanaNumber(to)) {
-      if (typeof this.localProvider.verifyOtp === 'function') {
-        return await this.localProvider.verifyOtp(to, code);
-      }
-      return false;
-    } else {
-      if (typeof this.internationalProvider.verifyOtp === 'function') {
-        return await this.internationalProvider.verifyOtp(to, code);
-      }
-      return false;
+    const provider = this.getCountryFromPhone(to);
+
+    switch (provider) {
+      case 'ARKESEL':
+        if (typeof this.arkeselProvider.verifyOtp === 'function') {
+          return await this.arkeselProvider.verifyOtp(to, code);
+        }
+        return false;
+
+      case 'WHATSAPP':
+        // WhatsApp doesn't support automatic OTP verification
+        // Return false to trigger local verification fallback
+        return false;
+
+      case 'TWILIO':
+      default:
+        if (typeof this.twilioProvider.verifyOtp === 'function') {
+          return await this.twilioProvider.verifyOtp(to, code);
+        }
+        return false;
     }
   }
 }
@@ -618,55 +1037,91 @@ class CompositeOtpProvider implements SmsProvider {
 export function createSmsService(): SmsService {
   const provider = process.env.SMS_PROVIDER || 'mock';
 
-  let localProvider: SmsProvider;
-  let internationalProvider: SmsProvider;
+  let arkeselProvider: SmsProvider;
+  let whatsappProvider: SmsProvider;
+  let twilioProvider: SmsProvider;
 
-  // Set up local provider for Ghana numbers
+  // Set up Arkesel provider for African countries
+  // (Ghana, Kenya, Tanzania, Nigeria, South Africa)
   switch (provider) {
     case 'arkesel':
       if (!process.env.ARKESEL_API_KEY) {
         logger.warn(
           'Arkesel API key not configured, falling back to mock provider'
         );
-        localProvider = new MockSmsProvider();
+        arkeselProvider = new MockSmsProvider();
       } else {
-        localProvider = new ArkeselSmsProvider(
+        arkeselProvider = new ArkeselSmsProvider(
           process.env.ARKESEL_API_KEY,
           process.env.ARKESEL_SENDER_ID || 'ELECTION',
           process.env.ARKESEL_SANDBOX === 'true'
         );
+        logger.info('Arkesel configured for Ghana, Kenya, Tanzania, Nigeria, and South Africa');
       }
       break;
     case 'mock':
     default:
-      localProvider = new MockSmsProvider();
+      arkeselProvider = new MockSmsProvider();
       break;
   }
 
-  // Set up international provider (Twilio Verify)
+  // Set up WhatsApp Business API for US and Canada (Facebook API)
   if (
-    process.env.TWILIO_ACCOUNT_SID &&
-    process.env.TWILIO_AUTH_TOKEN &&
-    process.env.TWILIO_VERIFY_SERVICE_SID
+    process.env.WHATSAPP_ACCESS_TOKEN &&
+    process.env.WHATSAPP_PHONE_NUMBER_ID
   ) {
-    internationalProvider = new TwilioVerifyProvider(
-      process.env.TWILIO_ACCOUNT_SID,
-      process.env.TWILIO_AUTH_TOKEN,
-      process.env.TWILIO_VERIFY_SERVICE_SID
+    whatsappProvider = new WhatsAppBusinessProvider(
+      process.env.WHATSAPP_ACCESS_TOKEN,
+      process.env.WHATSAPP_PHONE_NUMBER_ID,
+      process.env.WHATSAPP_API_VERSION // Use version from .env (v21.0)
     );
-
     logger.info(
-      `Twilio Verify configured with Service SID: ${process.env.TWILIO_VERIFY_SERVICE_SID}`
+      `WhatsApp Business API (Facebook) configured for US and Canada with Phone Number ID: ${process.env.WHATSAPP_PHONE_NUMBER_ID}`
     );
   } else {
     logger.warn(
-      'Twilio Verify credentials not configured, using mock provider for international numbers'
+      'WhatsApp Business credentials not configured, using mock provider for US/Canada numbers'
     );
-    internationalProvider = new MockSmsProvider();
+    whatsappProvider = new MockSmsProvider();
+  }
+
+  // Set up Twilio SMS for international numbers (including US/Canada with A2P campaign)
+  // Supports both OTP (via Verify) and regular SMS (via Messaging Service with A2P)
+  if (
+    process.env.TWILIO_ACCOUNT_SID &&
+    process.env.TWILIO_AUTH_TOKEN
+  ) {
+    twilioProvider = new TwilioSmsProvider(
+      process.env.TWILIO_ACCOUNT_SID,
+      process.env.TWILIO_AUTH_TOKEN,
+      process.env.TWILIO_VERIFY_SERVICE_SID, // Optional: for OTP verification
+      process.env.TWILIO_MESSAGING_SERVICE_SID // Required: for regular SMS (includes A2P campaign for US/Canada)
+    );
+
+    const features: string[] = [];
+    if (process.env.TWILIO_VERIFY_SERVICE_SID) {
+      features.push(`OTP via Verify Service (${process.env.TWILIO_VERIFY_SERVICE_SID})`);
+    }
+    if (process.env.TWILIO_MESSAGING_SERVICE_SID) {
+      features.push(`SMS via Messaging Service with A2P (${process.env.TWILIO_MESSAGING_SERVICE_SID})`);
+    }
+
+    logger.info(
+      `Twilio configured for international numbers including US/Canada A2P: ${features.join(', ')}`
+    );
+  } else {
+    logger.warn(
+      'Twilio credentials not configured, using mock provider for international numbers'
+    );
+    twilioProvider = new MockSmsProvider();
   }
 
   // Use composite provider that routes based on phone number
-  const compositeProvider = new CompositeOtpProvider(localProvider, internationalProvider);
+  const compositeProvider = new CompositeOtpProvider(
+    arkeselProvider,
+    whatsappProvider,
+    twilioProvider
+  );
 
   return new SmsService(compositeProvider);
 }
@@ -677,19 +1132,22 @@ const smsService = createSmsService();
 export const sendOtpSms = (
   to: string,
   code: string,
-  voterName: string
-) => smsService.sendOtp(to, code, voterName);
+  voterName: string,
+  voterId?: string
+) => smsService.sendOtp(to, code, voterName, voterId);
 
 export const sendVoteConfirmationSms = (
   to: string,
-  voterName: string
-) => smsService.sendVoteConfirmation(to, voterName);
+  voterName: string,
+  voterId?: string
+) => smsService.sendVoteConfirmation(to, voterName, voterId);
 
 export const sendElectionReminderSms = (
   to: string,
   voterName: string,
-  type: 'OPEN' | 'MIDWAY' | 'NEAR_END' | 'END'
-) => smsService.sendElectionReminder(to, voterName, type);
+  type: 'OPEN' | 'MIDWAY' | 'NEAR_END' | 'END',
+  voterId?: string
+) => smsService.sendElectionReminder(to, voterName, type, voterId);
 
 export const verifyOtpSms = (to: string, code: string) =>
   smsService.verifyOtp(to, code);

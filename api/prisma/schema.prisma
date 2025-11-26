@@ -187,19 +187,33 @@ model SmsMessage {
   type            SmsType
   to              String
   body            String
-  provider        String
+  provider        String        // 'arkesel', 'twilio', 'whatsapp'
   status          SmsStatus     @default(PENDING)
-  providerMsgId   String?
+  providerMsgId   String?       // Message SID from provider
   sentAt          DateTime?
   deliveredAt     DateTime?
+  failedAt        DateTime?
   error           String?
-  
+  errorCode       String?       // Provider-specific error code
+
+  // Twilio-specific fields
+  priceAmount     Float?        // Cost in dollars
+  priceUnit       String?       // Currency (e.g., 'USD')
+  numSegments     Int?          // Number of message segments
+  from            String?       // Sender phone number/ID
+
+  // Webhook tracking
+  webhookData     Json?         // Full webhook payload for debugging
+
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
-  
+
   // Relations
   voter           Voter?        @relation(fields: [voterId], references: [id], onDelete: SetNull)
 
+  @@index([providerMsgId])
+  @@index([status])
+  @@index([createdAt])
   @@map("sms_messages")
 }
 
@@ -293,11 +307,15 @@ enum SmsType {
 }
 
 enum SmsStatus {
-  PENDING
-  SENT
-  DELIVERED
-  FAILED
-  REJECTED
+  PENDING      // Initial state before sending
+  QUEUED       // Twilio: Message queued for sending
+  SENDING      // Twilio: Message is being sent
+  SENT         // Message successfully sent to carrier
+  DELIVERED    // Message delivered to recipient
+  UNDELIVERED  // Twilio: Failed to deliver
+  FAILED       // Generic failure
+  REJECTED     // Rejected by provider
+  READ         // WhatsApp: Message was read
 }
 
 enum DisputeStatus {

@@ -16,8 +16,77 @@ import {
   updateSingleElection,
   clearElectionCache,
 } from '../utils/singleElection';
+import { sendElectionReminderSms } from '../services/smsService';
 
 const router = express.Router();
+
+/**
+ * Send election start notifications to all voters
+ */
+async function sendElectionStartNotifications(): Promise<void> {
+  try {
+    logger.info('Starting to send election start notifications to all voters');
+
+    // Get all voters
+    const voters = await prisma.voter.findMany({
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        hasVoted: true,
+      },
+    });
+
+    logger.info(`Found ${voters.length} voters to notify`);
+
+    // Send SMS to all voters in batches to avoid overwhelming the SMS service
+    const batchSize = 50;
+    let successCount = 0;
+    let failureCount = 0;
+
+    for (let i = 0; i < voters.length; i += batchSize) {
+      const batch = voters.slice(i, i + batchSize);
+
+      // Send all SMS in parallel within each batch
+      const results = await Promise.allSettled(
+        batch.map(async (voter) => {
+          try {
+            await sendElectionReminderSms(voter.phone, voter.fullName, 'OPEN', voter.id);
+            logger.info(`Sent election start SMS to ${voter.fullName} (${voter.phone})`);
+            return { success: true, voterId: voter.id };
+          } catch (error) {
+            logger.error(
+              `Failed to send election start SMS to ${voter.fullName} (${voter.phone}):`,
+              error
+            );
+            return { success: false, voterId: voter.id, error };
+          }
+        })
+      );
+
+      // Count successes and failures
+      results.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value.success) {
+          successCount++;
+        } else {
+          failureCount++;
+        }
+      });
+
+      // Small delay between batches to avoid rate limiting
+      if (i + batchSize < voters.length) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+
+    logger.info(
+      `Election start notifications complete: ${successCount} sent, ${failureCount} failed out of ${voters.length} total`
+    );
+  } catch (error) {
+    logger.error('Error sending election start notifications:', error);
+    throw error;
+  }
+}
 
 // All routes require admin authentication
 router.use(authenticateAdmin);
@@ -165,6 +234,12 @@ router.post('/start', async (req: AuthenticatedRequest, res, next) => {
     logger.info(
       `Election started by user ${req.user!.id}`
     );
+
+    // Send SMS notifications to all voters asynchronously
+    // Don't wait for SMS to complete to avoid blocking the response
+    sendElectionStartNotifications().catch((error) => {
+      logger.error('Failed to send election start notifications:', error);
+    });
 
     res.json({
       message: 'Election started successfully',

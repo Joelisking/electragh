@@ -13,6 +13,7 @@ import {
   ConflictError,
 } from '../middleware/errorHandler';
 import { logger } from '../utils/logger';
+import { sendElectionReminderSms } from '../services/smsService';
 
 const router = express.Router();
 
@@ -567,6 +568,187 @@ router.delete(
         deletedCount: result.count,
         cutoffDate: cutoffDate.toISOString(),
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Get SMS messages with filtering and pagination (Admin and EC only)
+router.get(
+  '/sms-messages',
+  requireRole('ADMIN', 'EC_MEMBER'),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const {
+        page = '1',
+        limit = '50',
+        status,
+        type,
+        provider,
+        voterId,
+        startDate,
+        endDate,
+      } = req.query;
+
+      const pageNum = parseInt(page as string);
+      const limitNum = Math.min(parseInt(limit as string), 100); // Max 100 per page
+      const offset = (pageNum - 1) * limitNum;
+
+      const where: any = {};
+
+      if (status) where.status = status;
+      if (type) where.type = type;
+      if (provider) where.provider = provider;
+      if (voterId) where.voterId = voterId;
+
+      if (startDate || endDate) {
+        where.createdAt = {};
+        if (startDate) where.createdAt.gte = new Date(startDate as string);
+        if (endDate) where.createdAt.lte = new Date(endDate as string);
+      }
+
+      const [messages, total, stats] = await Promise.all([
+        prisma.smsMessage.findMany({
+          where,
+          include: {
+            voter: {
+              select: {
+                id: true,
+                fullName: true,
+                phone: true,
+              },
+            },
+          },
+          skip: offset,
+          take: limitNum,
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.smsMessage.count({ where }),
+        // Get stats for current filters
+        prisma.smsMessage.groupBy({
+          by: ['status'],
+          where,
+          _count: { status: true },
+        }),
+      ]);
+
+      // Calculate total cost from price amounts
+      const totalCost = await prisma.smsMessage.aggregate({
+        where,
+        _sum: {
+          priceAmount: true,
+        },
+      });
+
+      res.json({
+        messages,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum),
+        },
+        stats: {
+          statusBreakdown: stats.reduce(
+            (acc: Record<string, number>, item) => {
+              acc[item.status] = item._count.status;
+              return acc;
+            },
+            {}
+          ),
+          totalCost: totalCost._sum.priceAmount || 0,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Send test SMS (Admin only) - for testing SMS providers
+router.post(
+  '/test-sms',
+  requireRole('ADMIN'),
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const { phone, message, type = 'OPEN' } = req.body;
+
+      if (!phone) {
+        throw new ValidationError('Phone number is required');
+      }
+
+      // Find voter by phone if exists, otherwise send without voter link
+      const voter = await prisma.voter.findUnique({
+        where: { phone },
+        select: { id: true, fullName: true },
+      });
+
+      const voterName = voter?.fullName || 'Test User';
+      const customMessage = message || `Test SMS from ElectraGH system. Time: ${new Date().toISOString()}`;
+
+      // If custom message provided, send it directly via the service
+      if (message) {
+        // Import the SMS service for custom messages
+        const { createSmsService } = require('../services/smsService');
+        const smsService = createSmsService();
+
+        const result = await smsService['provider'].sendSms(
+          phone,
+          customMessage,
+          'ADMIN_NOTIFICATION'
+        );
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to send SMS');
+        }
+
+        logger.info(`Test SMS sent to ${phone} by admin ${req.user!.id}`);
+
+        // Determine actual provider used (matches smsService routing logic)
+        const cleaned = phone.replace(/\D/g, '');
+        let providerUsed = 'twilio'; // default
+
+        // Check if African country (Arkesel)
+        if (cleaned.startsWith('233') || cleaned.startsWith('254') ||
+            cleaned.startsWith('255') || cleaned.startsWith('234') ||
+            cleaned.startsWith('27')) {
+          providerUsed = 'arkesel';
+        }
+        // Check if US/Canada (currently WhatsApp primary)
+        else if (cleaned.startsWith('1')) {
+          providerUsed = 'whatsapp'; // CHANGE TO 'twilio' when A2P campaign is approved
+        }
+
+        res.json({
+          message: 'Test SMS sent successfully',
+          phone,
+          messageId: result.messageId,
+          provider: providerUsed,
+        });
+      } else {
+        // Use election reminder format
+        const result = await sendElectionReminderSms(
+          phone,
+          voterName,
+          type as 'OPEN' | 'MIDWAY' | 'NEAR_END' | 'END',
+          voter?.id
+        );
+
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to send SMS');
+        }
+
+        logger.info(`Test SMS sent to ${phone} by admin ${req.user!.id}`);
+
+        res.json({
+          message: 'Test SMS sent successfully',
+          phone,
+          voterName,
+          messageId: result.messageId,
+          type,
+        });
+      }
     } catch (error) {
       next(error);
     }

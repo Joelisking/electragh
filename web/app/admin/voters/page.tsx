@@ -32,11 +32,10 @@ import {
   Upload,
   Download,
   CheckCircle,
-  XCircle,
   Clock,
-  Phone,
   UserPlus,
   Loader2,
+  Trash2,
   // RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -61,18 +60,6 @@ interface VoterStats {
   statusBreakdown: Record<string, number>;
 }
 
-const statusColors = {
-  INVITED: 'bg-blue-100 text-blue-800',
-  VERIFIED: 'bg-electra-primary-light text-electra-secondary',
-  BLOCKED: 'bg-red-100 text-red-800',
-};
-
-const statusIcons = {
-  INVITED: Clock,
-  VERIFIED: CheckCircle,
-  BLOCKED: XCircle,
-};
-
 export default function VotersPage() {
   const [voters, setVoters] = useState<Voter[]>([]);
   const [stats, setStats] = useState<VoterStats | null>(null);
@@ -85,6 +72,7 @@ export default function VotersPage() {
   // Dialog states
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedVoter, setSelectedVoter] = useState<Voter | null>(
     null
   );
@@ -96,7 +84,7 @@ export default function VotersPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const apiUrl =
     process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -181,27 +169,6 @@ export default function VotersPage() {
   //   ...new Set(voters.map((v) => v.classYearGroup).filter(Boolean)),
   // ].sort();
 
-  const getStatusIcon = (status: string) => {
-    const Icon =
-      statusIcons[status as keyof typeof statusIcons] || Clock;
-    return <Icon className="w-4 h-4" />;
-  };
-
-  const getDisplayStatus = (voter: Voter) => {
-    if (voter.hasVoted) return 'Voted';
-    return (
-      voter.status.charAt(0) + voter.status.slice(1).toLowerCase()
-    );
-  };
-
-  const getStatusBadgeClass = (voter: Voter) => {
-    if (voter.hasVoted) return 'bg-purple-100 text-purple-800';
-    return (
-      statusColors[voter.status as keyof typeof statusColors] ||
-      'bg-gray-100 text-gray-800'
-    );
-  };
-
   const handleEditVoter = (voter: Voter) => {
     setSelectedVoter(voter);
     setFormData({
@@ -268,15 +235,40 @@ export default function VotersPage() {
     }
   };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
+  const handleDeleteVoter = (voter: Voter) => {
+    setSelectedVoter(voter);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteVoter = async () => {
+    if (!selectedVoter) return;
+
+    setDeleting(true);
     try {
-      await Promise.all([fetchVoters(), fetchStats()]);
-      toast.success('Voter data refreshed');
+      const response = await fetch(
+        `${apiUrl}/api/voters/${selectedVoter.id}`,
+        {
+          method: 'DELETE',
+          credentials: 'include',
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete voter');
+      }
+
+      toast.success('Voter deleted successfully');
+      setDeleteDialogOpen(false);
+      setSelectedVoter(null);
+      fetchVoters();
+      fetchStats();
     } catch (err) {
-      toast.error('Failed to refresh data');
+      toast.error(
+        err instanceof Error ? err.message : 'An error occurred'
+      );
     } finally {
-      setRefreshing(false);
+      setDeleting(false);
     }
   };
 
@@ -590,10 +582,17 @@ export default function VotersPage() {
                           Edit
                         </Button>
                         <Button
+                          onClick={() => handleDeleteVoter(voter)}
                           variant="outline"
                           size="sm"
-                          className="border-electra-primary/30 text-electra-primary hover:bg-electra-primary-light/20 transition-all">
-                          <Phone className="w-4 h-4" />
+                          disabled={voter.hasVoted}
+                          className="border-red-300 text-red-600 hover:bg-red-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={
+                            voter.hasVoted
+                              ? 'Cannot delete voter who has already voted'
+                              : 'Delete voter'
+                          }>
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     </TableCell>
@@ -792,6 +791,63 @@ export default function VotersPage() {
                 )}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Voter Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Voter</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this voter? This action
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedVoter && (
+            <div className="space-y-2 py-4">
+              <p className="text-sm">
+                <span className="font-semibold">Name:</span>{' '}
+                {selectedVoter.fullName}
+              </p>
+              <p className="text-sm">
+                <span className="font-semibold">Phone:</span>{' '}
+                {selectedVoter.phone}
+              </p>
+              {selectedVoter.classYearGroup && (
+                <p className="text-sm">
+                  <span className="font-semibold">Class/Year:</span>{' '}
+                  {selectedVoter.classYearGroup}
+                </p>
+              )}
+            </div>
+          )}
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deleting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDeleteVoter}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 text-white">
+              {deleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Voter
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

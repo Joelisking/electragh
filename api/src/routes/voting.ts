@@ -133,8 +133,12 @@ router.post(
         );
       }
 
-      // Allow voters who have already voted to still log in (to view results)
-      // The voting page will prevent them from voting again
+      // Block OTP requests for voters who have already voted
+      if (voter.hasVoted) {
+        throw new ConflictError(
+          'You have already voted in this election. Thank you for participating!'
+        );
+      }
 
       // Check if too many recent OTP attempts
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
@@ -171,7 +175,7 @@ router.post(
       });
 
       // Send OTP via SMS
-      await sendOtpSms(phone, otpCode, voter.fullName);
+      await sendOtpSms(phone, otpCode, voter.fullName, voter.id);
 
       logger.info(`OTP sent to voter ${voter.id} (${phone})`);
 
@@ -695,7 +699,8 @@ router.post(
       try {
         await sendVoteConfirmationSms(
           req.voter!.phone,
-          req.voter!.fullName
+          req.voter!.fullName,
+          req.voter!.id
         );
         logger.info(
           `Vote confirmation SMS sent to voter ${req.voter!.id}`

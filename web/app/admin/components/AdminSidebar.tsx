@@ -10,6 +10,7 @@ import {
   UserCheck,
   BarChart3,
   Settings,
+  MessageSquare,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -19,6 +20,7 @@ const navigation = [
   { name: 'Voters', href: '/admin/voters', icon: Users },
   { name: 'Candidates', href: '/admin/candidates', icon: UserCheck },
   { name: 'Results', href: '/admin/results', icon: BarChart3 },
+  { name: 'Messages', href: '/admin/messages', icon: MessageSquare },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 
