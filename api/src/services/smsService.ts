@@ -122,7 +122,7 @@ class SmsService {
     voterName: string,
     voterId?: string
   ): Promise<SmsResult> {
-    const message = `Hello ${voterName},\n\nYour OTP for Ghana Election is: ${code}\n\nThis code expires in 5 minutes.\n\nElectoral Commission`;
+    const message = `Hello ${voterName},\n\nYour OTP for Ghana Election is: ${code}\n\nThis code expires in 5 minutes.\n\nAGOSA EC`;
     const result = await this.provider.sendSms(
       to,
       message,
@@ -133,7 +133,14 @@ class SmsService {
     const providerName = this.getProviderName(to);
 
     // Log to database
-    await this.logMessageToDatabase(to, message, 'OTP_CODE', providerName, result, voterId);
+    await this.logMessageToDatabase(
+      to,
+      message,
+      'OTP_CODE',
+      providerName,
+      result,
+      voterId
+    );
 
     // If using fallback SMS, store the generated OTP for verification
     if (
@@ -186,7 +193,7 @@ class SmsService {
     voterName: string,
     voterId?: string
   ): Promise<SmsResult> {
-    const message = `Hello ${voterName},\n\nYour vote has been successfully recorded. Thank you for participating in the election.\n\nElectoral Commission`;
+    const message = `Hello ${voterName},\n\nYour vote has been successfully recorded. Thank you for participating in the election.\n\nAGOSA EC`;
     const result = await this.provider.sendSms(
       to,
       message,
@@ -197,7 +204,14 @@ class SmsService {
     const providerName = this.getProviderName(to);
 
     // Log to database
-    await this.logMessageToDatabase(to, message, 'VOTE_CONFIRMATION', providerName, result, voterId);
+    await this.logMessageToDatabase(
+      to,
+      message,
+      'VOTE_CONFIRMATION',
+      providerName,
+      result,
+      voterId
+    );
 
     return result;
   }
@@ -212,26 +226,37 @@ class SmsService {
 
     switch (type) {
       case 'OPEN':
-        message = `Hello ${voterName},\n\nVoting is now OPEN! Cast your vote at [VOTING_URL]\n\nElectoral Commission`;
+        message = `Hello ${voterName},\n\nVoting is now OPEN! Cast your vote at [VOTING_URL]\n\nAGOSA EC`;
         break;
       case 'MIDWAY':
-        message = `Hello ${voterName},\n\nReminder: Voting is still open. Don't miss your chance to vote!\n\nElectoral Commission`;
+        message = `Hello ${voterName},\n\nReminder: Voting is still open. Don't miss your chance to vote!\n\nAGOSA EC`;
         break;
       case 'NEAR_END':
-        message = `Hello ${voterName},\n\nFinal reminder: Voting ends soon! Cast your vote now.\n\nElectoral Commission`;
+        message = `Hello ${voterName},\n\nFinal reminder: Voting ends soon! Cast your vote now.\n\nAGOSA EC`;
         break;
       case 'END':
-        message = `Hello ${voterName},\n\nVoting has now ended. Thank you to all who participated.\n\nElectoral Commission`;
+        message = `Hello ${voterName},\n\nVoting has now ended. Thank you to all who participated.\n\nAGOSA EC`;
         break;
     }
 
-    const result = await this.provider.sendSms(to, message, `VOTE_${type}`);
+    const result = await this.provider.sendSms(
+      to,
+      message,
+      `VOTE_${type}`
+    );
 
     // Determine provider name
     const providerName = this.getProviderName(to);
 
     // Log to database
-    await this.logMessageToDatabase(to, message, 'VOTE_REMINDER', providerName, result, voterId);
+    await this.logMessageToDatabase(
+      to,
+      message,
+      'VOTE_REMINDER',
+      providerName,
+      result,
+      voterId
+    );
 
     return result;
   }
@@ -292,7 +317,6 @@ class MockSmsProvider implements SmsProvider {
     };
   }
 }
-
 
 // Arkesel SMS provider implementation
 class ArkeselSmsProvider implements SmsProvider {
@@ -375,7 +399,9 @@ class ArkeselSmsProvider implements SmsProvider {
           data.success === true
         ) {
           logger.info(
-            `OTP sent successfully via Arkesel OTP API to ${to}, response: ${JSON.stringify(data)}`
+            `OTP sent successfully via Arkesel OTP API to ${to}, response: ${JSON.stringify(
+              data
+            )}`
           );
           return {
             success: true,
@@ -528,12 +554,16 @@ class ArkeselSmsProvider implements SmsProvider {
     try {
       const formattedPhone = this.formatPhoneNumber(to);
 
-      logger.info(`[Arkesel Verify] Starting verification - Phone: ${formattedPhone}, Code: ${code}, Sandbox: ${this.sandbox}`);
+      logger.info(
+        `[Arkesel Verify] Starting verification - Phone: ${formattedPhone}, Code: ${code}, Sandbox: ${this.sandbox}`
+      );
 
       // In sandbox mode, Arkesel's OTP verification might not work
       // Return false to trigger local verification fallback
       if (this.sandbox) {
-        logger.warn(`[Arkesel Verify] Sandbox mode enabled - skipping API verification, will use local fallback`);
+        logger.warn(
+          `[Arkesel Verify] Sandbox mode enabled - skipping API verification, will use local fallback`
+        );
         return false;
       }
 
@@ -542,7 +572,9 @@ class ArkeselSmsProvider implements SmsProvider {
         code: code,
       };
 
-      logger.info(`[Arkesel Verify] Request payload: ${JSON.stringify(payload)}`);
+      logger.info(
+        `[Arkesel Verify] Request payload: ${JSON.stringify(payload)}`
+      );
       logger.info(`[Arkesel Verify] Calling: ${this.verifyUrl}`);
 
       const response = await fetch(this.verifyUrl, {
@@ -556,7 +588,11 @@ class ArkeselSmsProvider implements SmsProvider {
 
       const responseText = await response.text();
       logger.info(`[Arkesel Verify] HTTP Status: ${response.status}`);
-      logger.info(`[Arkesel Verify] Response Headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`);
+      logger.info(
+        `[Arkesel Verify] Response Headers: ${JSON.stringify(
+          Object.fromEntries(response.headers.entries())
+        )}`
+      );
       logger.info(`[Arkesel Verify] Response Body: ${responseText}`);
 
       // Try to parse the response
@@ -564,7 +600,9 @@ class ArkeselSmsProvider implements SmsProvider {
       try {
         data = JSON.parse(responseText);
       } catch (parseError) {
-        logger.error(`[Arkesel Verify] Failed to parse response as JSON: ${responseText}`);
+        logger.error(
+          `[Arkesel Verify] Failed to parse response as JSON: ${responseText}`
+        );
         return false;
       }
 
@@ -575,35 +613,49 @@ class ArkeselSmsProvider implements SmsProvider {
       // - code: "1002" = No OTP found for this number
       // - Other codes = API errors
 
-      logger.info(`[Arkesel Verify] Parsed response: ${JSON.stringify(data)}`);
+      logger.info(
+        `[Arkesel Verify] Parsed response: ${JSON.stringify(data)}`
+      );
 
       const successCodes = ['1000', '1100']; // 1100 is for successful verification
       const failureCodes = ['1001', '1002', '1003']; // Invalid/expired/not found
 
       if (successCodes.includes(data.code)) {
-        logger.info(`[Arkesel Verify] ✓ OTP verified successfully for ${to}`);
+        logger.info(
+          `[Arkesel Verify] ✓ OTP verified successfully for ${to}`
+        );
         return true;
       }
 
       if (failureCodes.includes(data.code)) {
-        logger.warn(`[Arkesel Verify] ✗ OTP verification failed for ${to}: ${data.message || data.code}`);
+        logger.warn(
+          `[Arkesel Verify] ✗ OTP verification failed for ${to}: ${
+            data.message || data.code
+          }`
+        );
         return false;
       }
 
       // Check alternative success indicators
       if (data.status === 'success' || data.success === true) {
-        logger.info(`[Arkesel Verify] ✓ OTP verified successfully for ${to} (via status field)`);
+        logger.info(
+          `[Arkesel Verify] ✓ OTP verified successfully for ${to} (via status field)`
+        );
         return true;
       }
 
       // Unknown response
       logger.warn(
-        `[Arkesel Verify] ⚠ Unexpected response for ${to}: ${JSON.stringify(data)}`
+        `[Arkesel Verify] ⚠ Unexpected response for ${to}: ${JSON.stringify(
+          data
+        )}`
       );
       return false;
-
     } catch (error) {
-      logger.error(`[Arkesel Verify] Exception during verification:`, error);
+      logger.error(
+        `[Arkesel Verify] Exception during verification:`,
+        error
+      );
       return false;
     }
   }
@@ -707,7 +759,8 @@ class TwilioSmsProvider implements SmsProvider {
           messageParams.statusCallback = `${process.env.TWILIO_WEBHOOK_URL}/api/webhooks/twilio/status`;
         }
 
-        const messageResponse = await this.twilioClient.messages.create(messageParams);
+        const messageResponse =
+          await this.twilioClient.messages.create(messageParams);
 
         logger.info(
           `Twilio SMS sent successfully to ${to}, message SID: ${messageResponse.sid}, status: ${messageResponse.status}`
@@ -722,7 +775,8 @@ class TwilioSmsProvider implements SmsProvider {
       logger.error('Twilio SMS error:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error:
+          error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -747,7 +801,9 @@ class TwilioSmsProvider implements SmsProvider {
       const isApproved = verificationCheck.status === 'approved';
 
       if (isApproved) {
-        logger.info(`Twilio Verify OTP verification successful for ${to}`);
+        logger.info(
+          `Twilio Verify OTP verification successful for ${to}`
+        );
       } else {
         logger.warn(
           `Twilio Verify OTP verification failed for ${to}: status ${verificationCheck.status}`
@@ -769,7 +825,11 @@ class WhatsAppBusinessProvider implements SmsProvider {
   private apiUrl: string;
   private apiVersion: string;
 
-  constructor(accessToken: string, phoneNumberId: string, apiVersion?: string) {
+  constructor(
+    accessToken: string,
+    phoneNumberId: string,
+    apiVersion?: string
+  ) {
     this.accessToken = accessToken;
     this.phoneNumberId = phoneNumberId;
     this.apiVersion = apiVersion || 'v18.0';
@@ -786,7 +846,10 @@ class WhatsAppBusinessProvider implements SmsProvider {
       let formattedPhone = to.replace(/\D/g, '');
 
       // Ensure it starts with country code (no + sign for Facebook API)
-      if (!formattedPhone.startsWith('1') && formattedPhone.length === 10) {
+      if (
+        !formattedPhone.startsWith('1') &&
+        formattedPhone.length === 10
+      ) {
         formattedPhone = `1${formattedPhone}`; // Add US country code
       }
 
@@ -802,7 +865,11 @@ class WhatsAppBusinessProvider implements SmsProvider {
       let payload: any;
 
       // Use template message for known types to avoid 24-hour window restrictions
-      if (type === 'VOTE_OPEN' || type === 'ADMIN_NOTIFICATION' || message.includes('OPEN')) {
+      if (
+        type === 'VOTE_OPEN' ||
+        type === 'ADMIN_NOTIFICATION' ||
+        message.includes('OPEN')
+      ) {
         // Extract voter name from message if available
         // Format: "Hello {name},\n\nVoting is now OPEN! Cast your vote at [VOTING_URL]\n\nElectoral Commission"
         let voterName = 'Voter'; // Default fallback
@@ -811,7 +878,7 @@ class WhatsAppBusinessProvider implements SmsProvider {
           voterName = helloMatch[1].trim();
         }
 
-        const electionName = 'AGOSA EC Election';
+        const electionName = 'AGOSA Election';
         const closingTime = 'November 30, 2025 at 11:59pm';
 
         // Use approved template for election start notification
@@ -845,7 +912,9 @@ class WhatsAppBusinessProvider implements SmsProvider {
             ],
           },
         };
-        logger.info(`Using WhatsApp template 'election_start_notification' for ${to} with params: ${voterName}, ${electionName}, ${closingTime}`);
+        logger.info(
+          `Using WhatsApp template 'election_start_notification' for ${to} with params: ${voterName}, ${electionName}, ${closingTime}`
+        );
       } else {
         // Fallback to text message (only works within 24-hour window)
         payload = {
@@ -856,13 +925,15 @@ class WhatsAppBusinessProvider implements SmsProvider {
             body: message,
           },
         };
-        logger.warn(`Using WhatsApp text message for ${to} - only works within 24-hour window`);
+        logger.warn(
+          `Using WhatsApp text message for ${to} - only works within 24-hour window`
+        );
       }
 
       const response = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${this.accessToken}`,
+          Authorization: `Bearer ${this.accessToken}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
@@ -872,23 +943,29 @@ class WhatsAppBusinessProvider implements SmsProvider {
 
       if (!response.ok) {
         throw new Error(
-          `WhatsApp API error: ${responseData.error?.message || response.statusText}`
+          `WhatsApp API error: ${
+            responseData.error?.message || response.statusText
+          }`
         );
       }
 
       logger.info(
-        `WhatsApp message sent successfully to ${to}, message ID: ${responseData.messages?.[0]?.id || 'unknown'}`
+        `WhatsApp message sent successfully to ${to}, message ID: ${
+          responseData.messages?.[0]?.id || 'unknown'
+        }`
       );
 
       return {
         success: true,
-        messageId: responseData.messages?.[0]?.id || `whatsapp_${Date.now()}`,
+        messageId:
+          responseData.messages?.[0]?.id || `whatsapp_${Date.now()}`,
       };
     } catch (error) {
       logger.error('WhatsApp Business API error:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error:
+          error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
@@ -913,7 +990,9 @@ class CompositeOtpProvider implements SmsProvider {
     this.twilioProvider = twilioProvider;
   }
 
-  private getCountryFromPhone(phone: string): 'ARKESEL' | 'WHATSAPP' | 'TWILIO' {
+  private getCountryFromPhone(
+    phone: string
+  ): 'ARKESEL' | 'WHATSAPP' | 'TWILIO' {
     // Remove any non-digit characters
     const cleaned = phone.replace(/\D/g, '');
 
@@ -974,12 +1053,23 @@ class CompositeOtpProvider implements SmsProvider {
         //
         // FALLBACK: If WhatsApp fails, Twilio will be tried as backup (see below)
         // ============================================================================
-        logger.info(`Using WhatsApp Business API for US/Canada number: ${to}`);
-        const whatsappResult = await this.whatsappProvider.sendSms(to, message, type);
+        logger.info(
+          `Using WhatsApp Business API for US/Canada number: ${to}`
+        );
+        const whatsappResult = await this.whatsappProvider.sendSms(
+          to,
+          message,
+          type
+        );
 
         // If WhatsApp fails for US/Canada, try Twilio as backup
-        if (!whatsappResult.success && to.replace(/\D/g, '').startsWith('1')) {
-          logger.warn(`WhatsApp failed for US/Canada number ${to}, attempting Twilio fallback`);
+        if (
+          !whatsappResult.success &&
+          to.replace(/\D/g, '').startsWith('1')
+        ) {
+          logger.warn(
+            `WhatsApp failed for US/Canada number ${to}, attempting Twilio fallback`
+          );
           return await this.twilioProvider.sendSms(to, message, type);
         }
 
@@ -995,13 +1085,28 @@ class CompositeOtpProvider implements SmsProvider {
         // 2. This case will handle US/Canada with automatic WhatsApp fallback
         // 3. The fallback logic below will activate if Twilio fails for US/Canada
         // ============================================================================
-        logger.info(`Using Twilio SMS for international number: ${to}`);
-        const twilioResult = await this.twilioProvider.sendSms(to, message, type);
+        logger.info(
+          `Using Twilio SMS for international number: ${to}`
+        );
+        const twilioResult = await this.twilioProvider.sendSms(
+          to,
+          message,
+          type
+        );
 
         // If Twilio fails for US/Canada numbers (+1), try WhatsApp as backup
-        if (!twilioResult.success && to.replace(/\D/g, '').startsWith('1')) {
-          logger.warn(`Twilio failed for US/Canada number ${to}, attempting WhatsApp fallback`);
-          return await this.whatsappProvider.sendSms(to, message, type);
+        if (
+          !twilioResult.success &&
+          to.replace(/\D/g, '').startsWith('1')
+        ) {
+          logger.warn(
+            `Twilio failed for US/Canada number ${to}, attempting WhatsApp fallback`
+          );
+          return await this.whatsappProvider.sendSms(
+            to,
+            message,
+            type
+          );
         }
 
         return twilioResult;
@@ -1056,7 +1161,9 @@ export function createSmsService(): SmsService {
           process.env.ARKESEL_SENDER_ID || 'ELECTION',
           process.env.ARKESEL_SANDBOX === 'true'
         );
-        logger.info('Arkesel configured for Ghana, Kenya, Tanzania, Nigeria, and South Africa');
+        logger.info(
+          'Arkesel configured for Ghana, Kenya, Tanzania, Nigeria, and South Africa'
+        );
       }
       break;
     case 'mock':
@@ -1100,14 +1207,20 @@ export function createSmsService(): SmsService {
 
     const features: string[] = [];
     if (process.env.TWILIO_VERIFY_SERVICE_SID) {
-      features.push(`OTP via Verify Service (${process.env.TWILIO_VERIFY_SERVICE_SID})`);
+      features.push(
+        `OTP via Verify Service (${process.env.TWILIO_VERIFY_SERVICE_SID})`
+      );
     }
     if (process.env.TWILIO_MESSAGING_SERVICE_SID) {
-      features.push(`SMS via Messaging Service with A2P (${process.env.TWILIO_MESSAGING_SERVICE_SID})`);
+      features.push(
+        `SMS via Messaging Service with A2P (${process.env.TWILIO_MESSAGING_SERVICE_SID})`
+      );
     }
 
     logger.info(
-      `Twilio configured for international numbers including US/Canada A2P: ${features.join(', ')}`
+      `Twilio configured for international numbers including US/Canada A2P: ${features.join(
+        ', '
+      )}`
     );
   } else {
     logger.warn(

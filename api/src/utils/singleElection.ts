@@ -17,8 +17,8 @@ const CACHE_DURATION = 5000; // 5 seconds
 
 // Permanent election constants
 const PERMANENT_ELECTION_ID = 'permanent-election-001';
-const ELECTION_TITLE = 'School Leadership Election';
-const ELECTION_DESCRIPTION = 'Official election for student leadership positions';
+const ELECTION_TITLE = 'AGOSA Election';
+const ELECTION_DESCRIPTION = 'Official election for AGOSA';
 
 /**
  * Get the permanent election
@@ -27,7 +27,7 @@ const ELECTION_DESCRIPTION = 'Official election for student leadership positions
 export async function getSingleElection(): Promise<Election> {
   // Check cache first
   const now = Date.now();
-  if (cachedElection && (now - lastFetchTime) < CACHE_DURATION) {
+  if (cachedElection && now - lastFetchTime < CACHE_DURATION) {
     return cachedElection;
   }
 
@@ -175,10 +175,15 @@ export function clearElectionCache() {
 export async function initializeSingleElection() {
   try {
     const election = await getSingleElection();
-    logger.info(`Single election system initialized with election ID: ${election.id}`);
+    logger.info(
+      `Single election system initialized with election ID: ${election.id}`
+    );
     return election;
   } catch (error) {
-    logger.error('Failed to initialize single election system', error);
+    logger.error(
+      'Failed to initialize single election system',
+      error
+    );
     throw error;
   }
 }

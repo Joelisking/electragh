@@ -68,9 +68,8 @@ async function main() {
 
       const election = await prisma.election.create({
         data: {
-          title: 'School Leadership Election',
-          description:
-            'Official election for student leadership positions',
+          title: 'AGOSA Election',
+          description: 'Official election for AGOSA',
           startAt: startDate,
           endAt: endDate,
           timezone: 'Africa/Accra',
