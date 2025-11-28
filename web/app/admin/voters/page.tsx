@@ -662,7 +662,7 @@ export default function VotersPage() {
           </Table>
 
           {/* Pagination Controls */}
-          {totalPages > 1 && (
+          {totalVoters > 0 && (
             <div className="flex items-center justify-between px-4 py-4 border-t">
               <div className="text-sm text-gray-600">
                 Page {currentPage} of {totalPages} ({totalVoters} total voters)
@@ -670,28 +670,28 @@ export default function VotersPage() {
               <div className="flex gap-2">
                 <Button
                   onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
+                  disabled={currentPage === 1 || loading}
                   variant="outline"
                   size="sm">
                   First
                 </Button>
                 <Button
                   onClick={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage === 1}
+                  disabled={currentPage === 1 || loading}
                   variant="outline"
                   size="sm">
                   Previous
                 </Button>
                 <Button
                   onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
+                  disabled={currentPage >= totalPages || loading}
                   variant="outline"
                   size="sm">
                   Next
                 </Button>
                 <Button
                   onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
+                  disabled={currentPage >= totalPages || loading}
                   variant="outline"
                   size="sm">
                   Last
