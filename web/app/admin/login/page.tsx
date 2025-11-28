@@ -150,21 +150,6 @@ export default function AdminLoginPage() {
                 )}
               </Button>
             </form>
-
-            {/* Default Credentials Info */}
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg border">
-              <h4 className="font-medium text-sm text-gray-900 mb-2">
-                Default Credentials:
-              </h4>
-              <div className="text-sm text-gray-600 space-y-1">
-                <p>
-                  <strong>Phone:</strong> +12603486805
-                </p>
-                <p>
-                  <strong>Password:</strong> Pass123$1
-                </p>
-              </div>
-            </div>
           </CardContent>
         </Card>
 
