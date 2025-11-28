@@ -220,13 +220,14 @@ class SmsService {
     to: string,
     voterName: string,
     type: 'OPEN' | 'MIDWAY' | 'NEAR_END' | 'END',
+    url: string,
     voterId?: string
   ): Promise<SmsResult> {
     let message = '';
 
     switch (type) {
       case 'OPEN':
-        message = `Hello ${voterName},\n\nVoting is now OPEN! Cast your vote at [VOTING_URL]\n\nAGOSA EC`;
+        message = `Hello ${voterName},\n\nVoting is now OPEN! Cast your vote at ${url}\n\nAGOSA EC`;
         break;
       case 'MIDWAY':
         message = `Hello ${voterName},\n\nReminder: Voting is still open. Don't miss your chance to vote!\n\nAGOSA EC`;
@@ -791,12 +792,20 @@ class TwilioSmsProvider implements SmsProvider {
     }
 
     try {
+      logger.info(
+        `[Twilio Verify] Attempting verification - Phone: ${to}, Code: ${code}, Service SID: ${this.verifyServiceSid}`
+      );
+
       const verificationCheck = await this.twilioClient.verify.v2
         .services(this.verifyServiceSid)
         .verificationChecks.create({
           to: to,
           code: code,
         });
+
+      logger.info(
+        `[Twilio Verify] Verification response - Status: ${verificationCheck.status}, SID: ${verificationCheck.sid}`
+      );
 
       const isApproved = verificationCheck.status === 'approved';
 
@@ -812,7 +821,8 @@ class TwilioSmsProvider implements SmsProvider {
 
       return isApproved;
     } catch (error) {
-      logger.error('Twilio Verify OTP verification error:', error);
+      logger.error('[Twilio Verify] OTP verification error:', error);
+      logger.error('[Twilio Verify] Error details:', JSON.stringify(error, null, 2));
       return false;
     }
   }
@@ -1125,7 +1135,13 @@ class CompositeOtpProvider implements SmsProvider {
 
       case 'WHATSAPP':
         // WhatsApp doesn't support automatic OTP verification
-        // Return false to trigger local verification fallback
+        // BUT: For US/Canada numbers, we use Twilio Verify for OTP sending/verification
+        // even though WhatsApp is used for other message types
+        // So we should verify using Twilio Verify API
+        logger.info(`US/Canada number detected, using Twilio Verify for OTP verification: ${to}`);
+        if (typeof this.twilioProvider.verifyOtp === 'function') {
+          return await this.twilioProvider.verifyOtp(to, code);
+        }
         return false;
 
       case 'TWILIO':
@@ -1259,8 +1275,10 @@ export const sendElectionReminderSms = (
   to: string,
   voterName: string,
   type: 'OPEN' | 'MIDWAY' | 'NEAR_END' | 'END',
+  url: string,
   voterId?: string
-) => smsService.sendElectionReminder(to, voterName, type, voterId);
+) =>
+  smsService.sendElectionReminder(to, voterName, type, url, voterId);
 
 export const verifyOtpSms = (to: string, code: string) =>
   smsService.verifyOtp(to, code);

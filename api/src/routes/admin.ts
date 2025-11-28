@@ -257,9 +257,7 @@ router.post(
       });
 
       logger.info(
-        `User created: ${user.id} (${user.phone}) by ${
-          req.user!.id
-        }`
+        `User created: ${user.id} (${user.phone}) by ${req.user!.id}`
       );
 
       res.status(201).json(user);
@@ -604,8 +602,10 @@ router.get(
 
       if (startDate || endDate) {
         where.createdAt = {};
-        if (startDate) where.createdAt.gte = new Date(startDate as string);
-        if (endDate) where.createdAt.lte = new Date(endDate as string);
+        if (startDate)
+          where.createdAt.gte = new Date(startDate as string);
+        if (endDate)
+          where.createdAt.lte = new Date(endDate as string);
       }
 
       const [messages, total, stats] = await Promise.all([
@@ -685,12 +685,16 @@ router.post(
       });
 
       const voterName = voter?.fullName || 'Test User';
-      const customMessage = message || `Test SMS from ElectraGH system. Time: ${new Date().toISOString()}`;
+      const customMessage =
+        message ||
+        `Test SMS from ElectraGH system. Time: ${new Date().toISOString()}`;
 
       // If custom message provided, send it directly via the service
       if (message) {
         // Import the SMS service for custom messages
-        const { createSmsService } = require('../services/smsService');
+        const {
+          createSmsService,
+        } = require('../services/smsService');
         const smsService = createSmsService();
 
         const result = await smsService['provider'].sendSms(
@@ -703,16 +707,22 @@ router.post(
           throw new Error(result.error || 'Failed to send SMS');
         }
 
-        logger.info(`Test SMS sent to ${phone} by admin ${req.user!.id}`);
+        logger.info(
+          `Test SMS sent to ${phone} by admin ${req.user!.id}`
+        );
 
         // Determine actual provider used (matches smsService routing logic)
         const cleaned = phone.replace(/\D/g, '');
         let providerUsed = 'twilio'; // default
 
         // Check if African country (Arkesel)
-        if (cleaned.startsWith('233') || cleaned.startsWith('254') ||
-            cleaned.startsWith('255') || cleaned.startsWith('234') ||
-            cleaned.startsWith('27')) {
+        if (
+          cleaned.startsWith('233') ||
+          cleaned.startsWith('254') ||
+          cleaned.startsWith('255') ||
+          cleaned.startsWith('234') ||
+          cleaned.startsWith('27')
+        ) {
           providerUsed = 'arkesel';
         }
         // Check if US/Canada (currently WhatsApp primary)
@@ -727,11 +737,16 @@ router.post(
           provider: providerUsed,
         });
       } else {
-        // Use election reminder format
+        // Use election reminder format with proper voting URL
+        const frontendUrl =
+          process.env.FRONTEND_URL || 'https://electragh.vercel.app';
+        const votingUrl = `${frontendUrl}/vote`;
+
         const result = await sendElectionReminderSms(
           phone,
           voterName,
           type as 'OPEN' | 'MIDWAY' | 'NEAR_END' | 'END',
+          votingUrl,
           voter?.id
         );
 
@@ -739,7 +754,9 @@ router.post(
           throw new Error(result.error || 'Failed to send SMS');
         }
 
-        logger.info(`Test SMS sent to ${phone} by admin ${req.user!.id}`);
+        logger.info(
+          `Test SMS sent to ${phone} by admin ${req.user!.id}`
+        );
 
         res.json({
           message: 'Test SMS sent successfully',
@@ -747,6 +764,7 @@ router.post(
           voterName,
           messageId: result.messageId,
           type,
+          votingUrl,
         });
       }
     } catch (error) {

@@ -159,11 +159,18 @@ router.post(
         .padStart(6, '0');
       const otpExpiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
 
+      // Send OTP via SMS FIRST to determine if provider-side OTP is used
+      const smsResult = await sendOtpSms(phone, otpCode, voter.fullName, voter.id);
+
+      // Only store OTP code in DB if NOT using Twilio Verify (which manages OTP server-side)
+      // For Twilio Verify, set lastOtpCode to null since Twilio manages the code
+      const shouldStoreLocalOtp = !smsResult.messageId?.startsWith('VE'); // Twilio Verify SIDs start with VE
+
       // Update voter with OTP
       await prisma.voter.update({
         where: { id: voter.id },
         data: {
-          lastOtpCode: otpCode,
+          lastOtpCode: shouldStoreLocalOtp ? otpCode : null, // Don't store local code for Twilio Verify
           lastOtpSentAt: new Date(),
           otpAttempts:
             voter.lastOtpSentAt &&
@@ -174,8 +181,7 @@ router.post(
         },
       });
 
-      // Send OTP via SMS
-      await sendOtpSms(phone, otpCode, voter.fullName, voter.id);
+      logger.info(`OTP sent to voter ${voter.id} (${phone}) - Provider OTP: ${!shouldStoreLocalOtp}, MessageID: ${smsResult.messageId}`);
 
       logger.info(`OTP sent to voter ${voter.id} (${phone})`);
 
@@ -260,7 +266,7 @@ router.post(
         );
       }
 
-      // First try provider verification (e.g., Arkesel OTP API)
+      // First try provider verification (e.g., Arkesel OTP API, Twilio Verify)
       let isVerified = false;
       try {
         logger.info(`Attempting provider verification for voter ${voter.id} with phone ${voter.phone}`);
@@ -273,12 +279,19 @@ router.post(
 
       logger.info(`After provider check - isVerified value: ${isVerified}, will check local: ${!isVerified}`);
 
-      // Fallback to local code match if provider verification not available/failed
+      // Fallback to local code match ONLY if provider verification not available/failed AND local code exists
       if (!isVerified) {
+        // If lastOtpCode is null, it means we're using Twilio Verify which manages OTP server-side
+        // In this case, if provider verification failed, the OTP is genuinely invalid
+        if (!voter.lastOtpCode) {
+          logger.warn(`Provider verification failed and no local OTP stored for voter ${voter.id} - using Twilio Verify`);
+          throw new ValidationError('Invalid OTP code');
+        }
+
         logger.info(`Provider verification failed, checking local OTP for voter ${voter.id}`);
         logger.info(`Stored OTP: ${voter.lastOtpCode}, Provided OTP: ${code}`);
 
-        if (!voter.lastOtpCode || voter.lastOtpCode !== code) {
+        if (voter.lastOtpCode !== code) {
           logger.warn(`Local OTP verification failed for voter ${voter.id}`);
           throw new ValidationError('Invalid OTP code');
         }

@@ -25,7 +25,9 @@ const router = express.Router();
  */
 async function sendElectionStartNotifications(): Promise<void> {
   try {
-    logger.info('Starting to send election start notifications to all voters');
+    logger.info(
+      'Starting to send election start notifications to all voters'
+    );
 
     // Get all voters
     const voters = await prisma.voter.findMany({
@@ -39,6 +41,13 @@ async function sendElectionStartNotifications(): Promise<void> {
 
     logger.info(`Found ${voters.length} voters to notify`);
 
+    // Build the voting URL from environment variables
+    const frontendUrl =
+      process.env.FRONTEND_URL || 'https://electragh.vercel.app';
+    const votingUrl = `${frontendUrl}/vote`;
+
+    logger.info(`Using voting URL: ${votingUrl}`);
+
     // Send SMS to all voters in batches to avoid overwhelming the SMS service
     const batchSize = 50;
     let successCount = 0;
@@ -51,8 +60,16 @@ async function sendElectionStartNotifications(): Promise<void> {
       const results = await Promise.allSettled(
         batch.map(async (voter) => {
           try {
-            await sendElectionReminderSms(voter.phone, voter.fullName, 'OPEN', voter.id);
-            logger.info(`Sent election start SMS to ${voter.fullName} (${voter.phone})`);
+            await sendElectionReminderSms(
+              voter.phone,
+              voter.fullName,
+              'OPEN',
+              votingUrl,
+              voter.id
+            );
+            logger.info(
+              `Sent election start SMS to ${voter.fullName} (${voter.phone})`
+            );
             return { success: true, voterId: voter.id };
           } catch (error) {
             logger.error(
@@ -83,7 +100,10 @@ async function sendElectionStartNotifications(): Promise<void> {
       `Election start notifications complete: ${successCount} sent, ${failureCount} failed out of ${voters.length} total`
     );
   } catch (error) {
-    logger.error('Error sending election start notifications:', error);
+    logger.error(
+      'Error sending election start notifications:',
+      error
+    );
     throw error;
   }
 }
@@ -108,207 +128,240 @@ router.get('/', async (req: AuthenticatedRequest, res, next) => {
  * Update election settings
  * Only allows updating basic settings, not critical fields
  */
-router.patch('/settings', async (req: AuthenticatedRequest, res, next) => {
-  try {
-    const { title, description, startAt, endAt, timezone, allowAbstain } = req.body;
+router.patch(
+  '/settings',
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const {
+        title,
+        description,
+        startAt,
+        endAt,
+        timezone,
+        allowAbstain,
+      } = req.body;
 
-    const existingElection = await getSingleElection();
+      const existingElection = await getSingleElection();
 
-    // Prevent date updates if election is active or ended
-    if (['ACTIVE', 'ENDED'].includes(existingElection.status)) {
-      if (startAt || endAt) {
-        throw new ValidationError(
-          'Cannot update election dates when election is active or ended'
-        );
+      // Prevent date updates if election is active or ended
+      if (['ACTIVE', 'ENDED'].includes(existingElection.status)) {
+        if (startAt || endAt) {
+          throw new ValidationError(
+            'Cannot update election dates when election is active or ended'
+          );
+        }
       }
-    }
 
-    // Validate dates if provided
-    if (startAt && endAt) {
-      const startDate = new Date(startAt);
-      const endDate = new Date(endAt);
+      // Validate dates if provided
+      if (startAt && endAt) {
+        const startDate = new Date(startAt);
+        const endDate = new Date(endAt);
 
-      if (startDate >= endDate) {
-        throw new ValidationError('End date must be after start date');
+        if (startDate >= endDate) {
+          throw new ValidationError(
+            'End date must be after start date'
+          );
+        }
       }
+
+      // Build update object with only allowed fields
+      const updateData: any = {};
+      if (title !== undefined) updateData.title = title;
+      if (description !== undefined)
+        updateData.description = description;
+      if (startAt !== undefined)
+        updateData.startAt = new Date(startAt);
+      if (endAt !== undefined) updateData.endAt = new Date(endAt);
+      if (timezone !== undefined) updateData.timezone = timezone;
+      if (allowAbstain !== undefined)
+        updateData.allowAbstain = allowAbstain;
+
+      const election = await updateSingleElection(updateData);
+
+      logger.info(
+        `Election settings updated by user ${req.user!.id}`
+      );
+
+      res.json({
+        message: 'Election settings updated successfully',
+        election,
+      });
+    } catch (error) {
+      next(error);
     }
-
-    // Build update object with only allowed fields
-    const updateData: any = {};
-    if (title !== undefined) updateData.title = title;
-    if (description !== undefined) updateData.description = description;
-    if (startAt !== undefined) updateData.startAt = new Date(startAt);
-    if (endAt !== undefined) updateData.endAt = new Date(endAt);
-    if (timezone !== undefined) updateData.timezone = timezone;
-    if (allowAbstain !== undefined) updateData.allowAbstain = allowAbstain;
-
-    const election = await updateSingleElection(updateData);
-
-    logger.info(
-      `Election settings updated by user ${req.user!.id}`
-    );
-
-    res.json({
-      message: 'Election settings updated successfully',
-      election,
-    });
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * Toggle election visibility
  */
-router.patch('/visibility', async (req: AuthenticatedRequest, res, next) => {
-  try {
-    const { visibility } = req.body;
+router.patch(
+  '/visibility',
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const { visibility } = req.body;
 
-    if (!visibility || !['RESTRICTED', 'PUBLIC', 'LIVE_PUBLIC'].includes(visibility)) {
-      throw new ValidationError(
-        'Invalid visibility value. Must be RESTRICTED, PUBLIC, or LIVE_PUBLIC'
+      if (
+        !visibility ||
+        !['RESTRICTED', 'PUBLIC', 'LIVE_PUBLIC'].includes(visibility)
+      ) {
+        throw new ValidationError(
+          'Invalid visibility value. Must be RESTRICTED, PUBLIC, or LIVE_PUBLIC'
+        );
+      }
+
+      const election = await updateSingleElection({ visibility });
+
+      clearElectionCache();
+
+      logger.info(
+        `Election visibility changed to ${visibility} by user ${
+          req.user!.id
+        }`
       );
+
+      res.json({
+        message: 'Election visibility updated successfully',
+        election,
+      });
+    } catch (error) {
+      next(error);
     }
-
-    const election = await updateSingleElection({ visibility });
-
-    clearElectionCache();
-
-    logger.info(
-      `Election visibility changed to ${visibility} by user ${req.user!.id}`
-    );
-
-    res.json({
-      message: 'Election visibility updated successfully',
-      election,
-    });
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * Start/Activate the election
  */
-router.post('/start', async (req: AuthenticatedRequest, res, next) => {
-  try {
-    const election = await getSingleElectionWithDetails();
+router.post(
+  '/start',
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const election = await getSingleElectionWithDetails();
 
-    if (!election) {
-      throw new NotFoundError('Election not found');
-    }
+      if (!election) {
+        throw new NotFoundError('Election not found');
+      }
 
-    if (
-      election.status !== 'SCHEDULED' &&
-      election.status !== 'DRAFT'
-    ) {
-      throw new ValidationError(
-        'Election must be in SCHEDULED or DRAFT status to start'
+      if (
+        election.status !== 'SCHEDULED' &&
+        election.status !== 'DRAFT'
+      ) {
+        throw new ValidationError(
+          'Election must be in SCHEDULED or DRAFT status to start'
+        );
+      }
+
+      // Validate election has positions and candidates
+      if (election.positions.length === 0) {
+        throw new ValidationError(
+          'Election must have at least one position'
+        );
+      }
+
+      const positionsWithoutCandidates = election.positions.filter(
+        (p) => p.candidates.length === 0
       );
+      if (positionsWithoutCandidates.length > 0) {
+        throw new ValidationError(
+          `The following positions have no candidates: ${positionsWithoutCandidates
+            .map((p) => p.name)
+            .join(', ')}`
+        );
+      }
+
+      const updatedElection = await updateSingleElection({
+        status: 'ACTIVE',
+      });
+
+      clearElectionCache();
+
+      logger.info(`Election started by user ${req.user!.id}`);
+
+      // Send SMS notifications to all voters asynchronously
+      // Don't wait for SMS to complete to avoid blocking the response
+      sendElectionStartNotifications().catch((error) => {
+        logger.error(
+          'Failed to send election start notifications:',
+          error
+        );
+      });
+
+      res.json({
+        message: 'Election started successfully',
+        election: updatedElection,
+      });
+    } catch (error) {
+      next(error);
     }
-
-    // Validate election has positions and candidates
-    if (election.positions.length === 0) {
-      throw new ValidationError(
-        'Election must have at least one position'
-      );
-    }
-
-    const positionsWithoutCandidates = election.positions.filter(
-      (p) => p.candidates.length === 0
-    );
-    if (positionsWithoutCandidates.length > 0) {
-      throw new ValidationError(
-        `The following positions have no candidates: ${positionsWithoutCandidates
-          .map((p) => p.name)
-          .join(', ')}`
-      );
-    }
-
-    const updatedElection = await updateSingleElection({
-      status: 'ACTIVE',
-    });
-
-    clearElectionCache();
-
-    logger.info(
-      `Election started by user ${req.user!.id}`
-    );
-
-    // Send SMS notifications to all voters asynchronously
-    // Don't wait for SMS to complete to avoid blocking the response
-    sendElectionStartNotifications().catch((error) => {
-      logger.error('Failed to send election start notifications:', error);
-    });
-
-    res.json({
-      message: 'Election started successfully',
-      election: updatedElection,
-    });
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * Pause the election
  */
-router.post('/pause', async (req: AuthenticatedRequest, res, next) => {
-  try {
-    const election = await getSingleElection();
+router.post(
+  '/pause',
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const election = await getSingleElection();
 
-    if (election.status !== 'ACTIVE') {
-      throw new ValidationError('Only active elections can be paused');
+      if (election.status !== 'ACTIVE') {
+        throw new ValidationError(
+          'Only active elections can be paused'
+        );
+      }
+
+      const updatedElection = await updateSingleElection({
+        status: 'PAUSED',
+      });
+
+      clearElectionCache();
+
+      logger.info(`Election paused by user ${req.user!.id}`);
+
+      res.json({
+        message: 'Election paused successfully',
+        election: updatedElection,
+      });
+    } catch (error) {
+      next(error);
     }
-
-    const updatedElection = await updateSingleElection({
-      status: 'PAUSED',
-    });
-
-    clearElectionCache();
-
-    logger.info(
-      `Election paused by user ${req.user!.id}`
-    );
-
-    res.json({
-      message: 'Election paused successfully',
-      election: updatedElection,
-    });
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * Resume the election
  */
-router.post('/resume', async (req: AuthenticatedRequest, res, next) => {
-  try {
-    const election = await getSingleElection();
+router.post(
+  '/resume',
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const election = await getSingleElection();
 
-    if (election.status !== 'PAUSED') {
-      throw new ValidationError('Only paused elections can be resumed');
+      if (election.status !== 'PAUSED') {
+        throw new ValidationError(
+          'Only paused elections can be resumed'
+        );
+      }
+
+      const updatedElection = await updateSingleElection({
+        status: 'ACTIVE',
+      });
+
+      clearElectionCache();
+
+      logger.info(`Election resumed by user ${req.user!.id}`);
+
+      res.json({
+        message: 'Election resumed successfully',
+        election: updatedElection,
+      });
+    } catch (error) {
+      next(error);
     }
-
-    const updatedElection = await updateSingleElection({
-      status: 'ACTIVE',
-    });
-
-    clearElectionCache();
-
-    logger.info(
-      `Election resumed by user ${req.user!.id}`
-    );
-
-    res.json({
-      message: 'Election resumed successfully',
-      election: updatedElection,
-    });
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 /**
  * End the election
@@ -329,9 +382,7 @@ router.post('/end', async (req: AuthenticatedRequest, res, next) => {
 
     clearElectionCache();
 
-    logger.info(
-      `Election ended by user ${req.user!.id}`
-    );
+    logger.info(`Election ended by user ${req.user!.id}`);
 
     res.json({
       message: 'Election ended successfully',
@@ -346,161 +397,173 @@ router.post('/end', async (req: AuthenticatedRequest, res, next) => {
  * Reset the election for a new cycle
  * This archives old data and prepares the election for a new run
  */
-router.post('/reset', async (req: AuthenticatedRequest, res, next) => {
-  try {
-    const election = await getSingleElection();
+router.post(
+  '/reset',
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const election = await getSingleElection();
 
-    if (election.status === 'ACTIVE') {
-      throw new ValidationError(
-        'Cannot reset an active election. Please end it first.'
-      );
-    }
-
-    // Archive old ballots and votes by marking them with the old election cycle
-    // In a more complex system, you might want to create an archive table
-
-    // Clear all ballots and votes
-    await prisma.vote.deleteMany({
-      where: {
-        ballot: {
-          electionId: election.id,
-        },
-      },
-    });
-
-    await prisma.ballot.deleteMany({
-      where: {
-        electionId: election.id,
-      },
-    });
-
-    // Reset voter voting status
-    await prisma.voter.updateMany({
-      data: {
-        hasVoted: false,
-        votedAt: null,
-        status: 'VERIFIED', // Reset status back to VERIFIED
-      },
-    });
-
-    // Reset election to DRAFT status
-    const updatedElection = await updateSingleElection({
-      status: 'DRAFT',
-    });
-
-    clearElectionCache();
-
-    logger.info(
-      `Election reset for new cycle by user ${req.user!.id}`
-    );
-
-    res.json({
-      message: 'Election reset successfully. Ready for new cycle.',
-      election: updatedElection,
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Get election results
-router.get('/results', async (req: AuthenticatedRequest, res, next) => {
-  try {
-    const election = await getSingleElectionWithDetails();
-
-    if (!election) {
-      throw new NotFoundError('Election not found');
-    }
-
-    // Check if user has permission to view results
-    if (
-      election.visibility === 'RESTRICTED' &&
-      election.status !== 'ENDED'
-    ) {
-      // Only EC members can view live results
-      if (!['ADMIN', 'EC_MEMBER'].includes(req.user!.role)) {
+      if (election.status === 'ACTIVE') {
         throw new ValidationError(
-          'Insufficient permissions to view live results'
+          'Cannot reset an active election. Please end it first.'
         );
       }
-    }
 
-    // Get detailed results with vote counts
-    const positions = await prisma.position.findMany({
-      where: { electionId: election.id },
-      include: {
-        candidates: {
-          include: {
-            _count: {
-              select: {
-                votes: true,
+      // Archive old ballots and votes by marking them with the old election cycle
+      // In a more complex system, you might want to create an archive table
+
+      // Clear all ballots and votes
+      await prisma.vote.deleteMany({
+        where: {
+          ballot: {
+            electionId: election.id,
+          },
+        },
+      });
+
+      await prisma.ballot.deleteMany({
+        where: {
+          electionId: election.id,
+        },
+      });
+
+      // Reset voter voting status
+      await prisma.voter.updateMany({
+        data: {
+          hasVoted: false,
+          votedAt: null,
+          status: 'VERIFIED', // Reset status back to VERIFIED
+        },
+      });
+
+      // Reset election to DRAFT status
+      const updatedElection = await updateSingleElection({
+        status: 'DRAFT',
+      });
+
+      clearElectionCache();
+
+      logger.info(
+        `Election reset for new cycle by user ${req.user!.id}`
+      );
+
+      res.json({
+        message: 'Election reset successfully. Ready for new cycle.',
+        election: updatedElection,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Get election results
+router.get(
+  '/results',
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const election = await getSingleElectionWithDetails();
+
+      if (!election) {
+        throw new NotFoundError('Election not found');
+      }
+
+      // Check if user has permission to view results
+      if (
+        election.visibility === 'RESTRICTED' &&
+        election.status !== 'ENDED'
+      ) {
+        // Only EC members can view live results
+        if (!['ADMIN', 'EC_MEMBER'].includes(req.user!.role)) {
+          throw new ValidationError(
+            'Insufficient permissions to view live results'
+          );
+        }
+      }
+
+      // Get detailed results with vote counts
+      const positions = await prisma.position.findMany({
+        where: { electionId: election.id },
+        include: {
+          candidates: {
+            include: {
+              _count: {
+                select: {
+                  votes: true,
+                },
               },
             },
           },
         },
-      },
-      orderBy: { order: 'asc' },
-    });
+        orderBy: { order: 'asc' },
+      });
 
-    // Get abstain votes for each position
-    const abstainVotes = await prisma.vote.groupBy({
-      by: ['positionId'],
-      where: {
-        candidateId: null,
-        ballot: {
-          electionId: election.id,
+      // Get abstain votes for each position
+      const abstainVotes = await prisma.vote.groupBy({
+        by: ['positionId'],
+        where: {
+          candidateId: null,
+          ballot: {
+            electionId: election.id,
+          },
         },
-      },
-      _count: {
-        id: true,
-      },
-    });
+        _count: {
+          id: true,
+        },
+      });
 
-    const abstainMap = abstainVotes.reduce((acc, item) => {
-      acc[item.positionId] = item._count.id;
-      return acc;
-    }, {} as Record<string, number>);
+      const abstainMap = abstainVotes.reduce((acc, item) => {
+        acc[item.positionId] = item._count.id;
+        return acc;
+      }, {} as Record<string, number>);
 
-    // Calculate results for each position
-    const results = positions.map((position) => {
-      const totalVotes = position.candidates.reduce(
-        (sum, candidate) => sum + candidate._count.votes,
-        0
-      );
+      // Calculate results for each position
+      const results = positions.map((position) => {
+        const totalVotes = position.candidates.reduce(
+          (sum, candidate) => sum + candidate._count.votes,
+          0
+        );
 
-      const abstainCount = abstainMap[position.id] || 0;
-      const totalWithAbstain = totalVotes + abstainCount;
+        const abstainCount = abstainMap[position.id] || 0;
+        const totalWithAbstain = totalVotes + abstainCount;
 
-      const candidateResults = position.candidates.map((candidate) => ({
-        id: candidate.id,
-        name: candidate.fullName,
-        classYearGroup: candidate.classYearGroup,
-        votes: candidate._count.votes,
-        percentage:
-          totalWithAbstain > 0
-            ? Math.round((candidate._count.votes / totalWithAbstain) * 10000) /
-              100
-            : 0,
-      }));
+        const candidateResults = position.candidates.map(
+          (candidate) => ({
+            id: candidate.id,
+            name: candidate.fullName,
+            classYearGroup: candidate.classYearGroup,
+            votes: candidate._count.votes,
+            percentage:
+              totalWithAbstain > 0
+                ? Math.round(
+                    (candidate._count.votes / totalWithAbstain) *
+                      10000
+                  ) / 100
+                : 0,
+          })
+        );
 
-      return {
-        positionId: position.id,
-        positionName: position.name,
-        totalVotes: totalWithAbstain,
-        candidates: candidateResults.sort((a, b) => b.votes - a.votes),
-      };
-    });
+        return {
+          positionId: position.id,
+          positionName: position.name,
+          totalVotes: totalWithAbstain,
+          candidates: candidateResults.sort(
+            (a, b) => b.votes - a.votes
+          ),
+        };
+      });
 
-    res.json({
-      electionId: election.id,
-      electionTitle: election.title,
-      status: election.status,
-      totalBallots: election._count.ballots,
-      results,
-    });
-  } catch (error) {
-    next(error);
+      res.json({
+        electionId: election.id,
+        electionTitle: election.title,
+        status: election.status,
+        totalBallots: election._count.ballots,
+        results,
+      });
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 export default router;
