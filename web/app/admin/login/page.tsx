@@ -150,6 +150,19 @@ export default function AdminLoginPage() {
                 )}
               </Button>
             </form>
+
+            {/* Default Credentials Info */}
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg border">
+              <h4 className="font-medium text-sm text-gray-900 mb-2">
+                Support:
+              </h4>
+              <div className="text-sm text-gray-600 space-y-1">
+                <p>
+                  In case of any issues WhatsApp
+                  <strong>+233594765977</strong>
+                </p>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
