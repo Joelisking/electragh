@@ -56,7 +56,7 @@ const countries = [
   { code: 'AO', name: 'Angola', dialCode: '+244', flag: '🇦🇴' },
   { code: 'AU', name: 'Australia', dialCode: '+61', flag: '🇦🇺' },
   { code: 'BE', name: 'Belgium', dialCode: '+32', flag: '🇧🇪' },
-  { code: 'CI', name: 'Cote d\'Ivoire', dialCode: '+225', flag: '🇨🇮' },
+  { code: 'CI', name: "Cote d'Ivoire", dialCode: '+225', flag: '🇨🇮' },
   { code: 'DK', name: 'Denmark', dialCode: '+45', flag: '🇩🇰' },
   { code: 'FR', name: 'France', dialCode: '+33', flag: '🇫🇷' },
   { code: 'DE', name: 'Germany', dialCode: '+49', flag: '🇩🇪' },
@@ -75,9 +75,19 @@ const countries = [
   { code: 'TW', name: 'Taiwan', dialCode: '+886', flag: '🇹🇼' },
   { code: 'TZ', name: 'Tanzania', dialCode: '+255', flag: '🇹🇿' },
   { code: 'TG', name: 'Togo', dialCode: '+228', flag: '🇹🇬' },
-  { code: 'AE', name: 'United Arab Emirates', dialCode: '+971', flag: '🇦🇪' },
+  {
+    code: 'AE',
+    name: 'United Arab Emirates',
+    dialCode: '+971',
+    flag: '🇦🇪',
+  },
   { code: 'GB', name: 'United Kingdom', dialCode: '+44', flag: '🇬🇧' },
-  { code: 'US', name: 'United States of America', dialCode: '+1', flag: '🇺🇸' },
+  {
+    code: 'US',
+    name: 'United States of America',
+    dialCode: '+1',
+    flag: '🇺🇸',
+  },
 
   // Additional countries
   { code: 'CA', name: 'Canada', dialCode: '+1', flag: '🇨🇦' },
@@ -364,7 +374,8 @@ export default function AuthPage() {
                   <ShieldIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                   <AlertDescription className="text-sm">
                     Your phone number will be used to verify your
-                    identity.
+                    identity. Contact +233594765977 on Whatsapp for
+                    support
                   </AlertDescription>
                 </Alert>
 
