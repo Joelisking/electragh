@@ -725,9 +725,9 @@ router.post(
         ) {
           providerUsed = 'arkesel';
         }
-        // Check if US/Canada (currently WhatsApp primary)
+        // Check if US/Canada (Twilio primary)
         else if (cleaned.startsWith('1')) {
-          providerUsed = 'whatsapp'; // CHANGE TO 'twilio' when A2P campaign is approved
+          providerUsed = 'twilio'; // A2P campaign approved
         }
 
         res.json({

@@ -175,13 +175,13 @@ class SmsService {
     // PROVIDER NAME FOR DATABASE LOGGING
     // ============================================================================
     // IMPORTANT: This must match the actual primary provider being used
-    // CURRENT: WhatsApp is primary for US/Canada (+1)
-    // TO UPDATE: When switching to Twilio, change 'whatsapp' to 'twilio' below
+    // CURRENT: Twilio is primary for US/Canada (+1)
+    // TO UPDATE: When switching back to WhatsApp, change 'twilio' to 'whatsapp' below
     // ============================================================================
 
-    // US/Canada - Currently using WhatsApp as primary
+    // US/Canada - Using Twilio as primary
     if (cleaned.startsWith('1')) {
-      return 'whatsapp'; // CHANGE TO 'twilio' when A2P campaign is approved
+      return 'twilio'; // A2P campaign approved
     }
 
     // All other international numbers use Twilio
@@ -1020,22 +1020,20 @@ class CompositeOtpProvider implements SmsProvider {
     // ============================================================================
     // PRIMARY PROVIDER FOR US/CANADA NUMBERS (+1)
     // ============================================================================
-    // CURRENT: WhatsApp Business API (Facebook Graph API)
-    // REASON: Twilio A2P campaign is still under review
+    // CURRENT: Twilio (A2P campaign approved)
+    // FALLBACK: WhatsApp Business API (if Twilio fails)
     //
-    // TO SWITCH TO TWILIO (when A2P campaign is approved):
+    // TO SWITCH BACK TO WHATSAPP (if needed):
     // 1. Change the code below from:
-    //    if (cleaned.startsWith('1')) { return 'WHATSAPP'; }
-    //    to:
     //    if (cleaned.startsWith('1')) { return 'TWILIO'; }
-    // 2. The fallback logic in sendSms() will automatically use WhatsApp as backup
-    // 3. Ensure TWILIO_MESSAGING_SERVICE_SID is set in .env
-    // 4. Optionally set TWILIO_WEBHOOK_URL for delivery tracking
+    //    to:
+    //    if (cleaned.startsWith('1')) { return 'WHATSAPP'; }
+    // 2. The fallback logic in sendSms() will automatically use Twilio as backup
     // ============================================================================
 
-    // US and Canada (+1) - Currently using WhatsApp, will switch to Twilio when A2P approved
+    // US and Canada (+1) - Using Twilio as primary with WhatsApp fallback
     if (cleaned.startsWith('1')) {
-      return 'WHATSAPP'; // CHANGE TO 'TWILIO' when A2P campaign is approved
+      return 'TWILIO'; // A2P campaign approved
     }
 
     // All other international numbers use Twilio
