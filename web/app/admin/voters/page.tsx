@@ -66,8 +66,13 @@ export default function VotersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [classFilter, setClassFilter] = useState('all');
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalVoters, setTotalVoters] = useState(0);
+  const [limit] = useState(50); // Items per page
 
   // Dialog states
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -90,18 +95,43 @@ export default function VotersPage() {
     process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
   useEffect(() => {
-    fetchVoters();
     fetchStats();
   }, []);
 
+  useEffect(() => {
+    // Debounce search term to avoid too many API calls
+    const delaySearch = setTimeout(() => {
+      fetchVoters();
+    }, 300);
+
+    return () => clearTimeout(delaySearch);
+  }, [currentPage, searchTerm, classFilter]);
+
   const fetchVoters = async () => {
     try {
-      // Add cache-busting timestamp to ensure fresh data
+      setLoading(true);
+      // Build query parameters
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: limit.toString(),
+        _t: Date.now().toString(),
+      });
+
+      // Add search term if present
+      if (searchTerm.trim()) {
+        params.append('search', searchTerm.trim());
+      }
+
+      // Add class filter if selected
+      if (classFilter && classFilter !== 'all') {
+        params.append('classYearGroup', classFilter);
+      }
+
       const response = await fetch(
-        `${apiUrl}/api/voters?limit=1000&_t=${Date.now()}`,
+        `${apiUrl}/api/voters?${params.toString()}`,
         {
           credentials: 'include',
-          cache: 'no-store', // Disable caching
+          cache: 'no-store',
         }
       );
 
@@ -110,9 +140,9 @@ export default function VotersPage() {
       }
 
       const data = await response.json();
-      // eslint-disable-next-line no-console
-      console.log('Fetched voters response:', data);
       setVoters(data.voters);
+      setTotalPages(data.pagination.totalPages);
+      setTotalVoters(data.pagination.total);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'An error occurred'
@@ -144,30 +174,22 @@ export default function VotersPage() {
     }
   };
 
-  // Filter voters based on search and filters
-  const filteredVoters = voters.filter((voter) => {
-    const matchesSearch =
-      voter.fullName
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      voter.phone.includes(searchTerm) ||
-      (voter.uniqueIdentifier &&
-        voter.uniqueIdentifier
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()));
+  // Handle search with debounce
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1); // Reset to first page on search
+  };
 
-    const matchesStatus =
-      statusFilter === 'all' || voter.status === statusFilter;
-    const matchesClass =
-      classFilter === 'all' || voter.classYearGroup === classFilter;
+  // Handle class filter change
+  const handleClassFilterChange = (value: string) => {
+    setClassFilter(value);
+    setCurrentPage(1); // Reset to first page on filter change
+  };
 
-    return matchesSearch && matchesStatus && matchesClass;
-  });
-
-  // Get unique class years for filter
-  // const classYears = [
-  //   ...new Set(voters.map((v) => v.classYearGroup).filter(Boolean)),
-  // ].sort();
+  // Get unique class years from current voters for filter dropdown
+  const classYears = [
+    ...new Set(voters.map((v) => v.classYearGroup).filter(Boolean)),
+  ].sort();
 
   const handleEditVoter = (voter: Voter) => {
     setSelectedVoter(voter);
@@ -517,14 +539,43 @@ export default function VotersPage() {
         </Card>
       </div>
 
+      {/* Search and Filter Section */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <Input
+                placeholder="Search by name, phone, or ID..."
+                value={searchTerm}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="w-full"
+              />
+            </div>
+            <div className="w-full md:w-48">
+              <select
+                value={classFilter}
+                onChange={(e) => handleClassFilterChange(e.target.value)}
+                className="w-full h-10 px-3 rounded-md border border-gray-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-electra-primary">
+                <option value="all">All Classes/Years</option>
+                {classYears.map((year) => (
+                  <option key={year} value={year || ''}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Voters Table */}
       <Card className="shadow-lg border-electra-primary/10">
         <CardHeader className="bg-gradient-to-r from-electra-primary-light/5 to-electra-primary-light/10">
           <CardTitle className="text-electra-secondary">
-            Registered Voters ({filteredVoters.length})
+            Registered Voters ({totalVoters})
           </CardTitle>
           <CardDescription>
-            List of all registered voters and their current status
+            Showing {voters.length} voters on page {currentPage} of {totalPages}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -541,8 +592,8 @@ export default function VotersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredVoters.length > 0 ? (
-                filteredVoters.map((voter) => (
+              {voters.length > 0 ? (
+                voters.map((voter) => (
                   <TableRow key={voter.id}>
                     <TableCell className="font-medium">
                       {voter.fullName}
@@ -609,6 +660,45 @@ export default function VotersPage() {
               )}
             </TableBody>
           </Table>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-4 border-t">
+              <div className="text-sm text-gray-600">
+                Page {currentPage} of {totalPages} ({totalVoters} total voters)
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  variant="outline"
+                  size="sm">
+                  First
+                </Button>
+                <Button
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  variant="outline"
+                  size="sm">
+                  Previous
+                </Button>
+                <Button
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  variant="outline"
+                  size="sm">
+                  Next
+                </Button>
+                <Button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  variant="outline"
+                  size="sm">
+                  Last
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
