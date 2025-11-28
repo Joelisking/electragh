@@ -92,10 +92,14 @@ async function testArkeselSms() {
 
     // Test 3: Send Election Reminder SMS
     console.log('3️⃣ Testing Election Reminder SMS...');
+    const votingUrl = process.env.FRONTEND_URL
+      ? `${process.env.FRONTEND_URL}/vote`
+      : 'http://localhost:3000/vote';
     const reminderResult = await smsService.sendElectionReminder(
       testPhone,
       testVoterName,
-      'OPEN'
+      'OPEN',
+      votingUrl
     );
 
     if (reminderResult.success) {
