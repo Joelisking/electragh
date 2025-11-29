@@ -374,8 +374,7 @@ export default function AuthPage() {
                   <ShieldIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                   <AlertDescription className="text-sm">
                     Your phone number will be used to verify your
-                    identity. Contact +233594765977 on Whatsapp for
-                    support
+                    identity.
                   </AlertDescription>
                 </Alert>
 
