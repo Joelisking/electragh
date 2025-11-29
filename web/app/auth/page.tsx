@@ -123,7 +123,7 @@ const countries = [
 export default function AuthPage() {
   const [step, setStep] = useState<AuthStep>('phone');
   const [selectedCountry, setSelectedCountry] = useState(
-    countries[0]
+    countries.find((c) => c.code === 'GH') || countries[0]
   ); // Default to Ghana
   const [phoneNumber, setPhoneNumber] = useState('');
   const [otp, setOtp] = useState('');
