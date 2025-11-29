@@ -163,7 +163,9 @@ class SmsService {
 
   private getProviderName(phone: string): string {
     const cleaned = phone.replace(/\D/g, '');
-    const arkeselCountryCodes = ['233', '254', '255', '234', '27'];
+    // Arkesel supports: Ghana (233), Kenya (254), Tanzania (255), Nigeria (234)
+    // Note: South Africa (27) is NOT supported by Arkesel, use Twilio instead
+    const arkeselCountryCodes = ['233', '254', '255', '234'];
 
     for (const code of arkeselCountryCodes) {
       if (cleaned.startsWith(code)) {
@@ -1010,8 +1012,9 @@ class CompositeOtpProvider implements SmsProvider {
     const cleaned = phone.replace(/\D/g, '');
 
     // African countries that should use Arkesel
-    // Ghana: +233, Kenya: +254, Tanzania: +255, Nigeria: +234, South Africa: +27
-    const arkeselCountryCodes = ['233', '254', '255', '234', '27'];
+    // Ghana: +233, Kenya: +254, Tanzania: +255, Nigeria: +234
+    // Note: South Africa (+27) is NOT supported by Arkesel, routed to Twilio
+    const arkeselCountryCodes = ['233', '254', '255', '234'];
 
     // Check for Arkesel-supported countries (African countries)
     for (const code of arkeselCountryCodes) {
