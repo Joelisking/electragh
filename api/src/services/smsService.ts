@@ -1018,6 +1018,8 @@ class CompositeOtpProvider implements SmsProvider {
     // Twilio Verify instead of Arkesel, even if they're in Arkesel countries
     const twilioVerifyWhitelist = [
       '233245203024', // Ladybell Pappoe - SMS delivery issues with Arkesel
+      '233244384321', // Veronica Dodoo - 32 OTP attempts, not delivered via Arkesel
+      '233245643212', // Yvonne Bassaku - 15 OTP attempts, not delivered via Arkesel
     ];
 
     // Check if this number is whitelisted for Twilio Verify
