@@ -163,9 +163,15 @@ class SmsService {
 
   private getProviderName(phone: string): string {
     const cleaned = phone.replace(/\D/g, '');
-    // Arkesel supports: Ghana (233), Kenya (254), Tanzania (255), Nigeria (234)
-    // Note: South Africa (27) is NOT supported by Arkesel, use Twilio instead
-    const arkeselCountryCodes = ['233', '254', '255', '234'];
+
+    // ============================================================================
+    // ARKESEL DISABLED - All countries now use Twilio
+    // ============================================================================
+    // Previously supported: Ghana (233), Kenya (254), Tanzania (255), Nigeria (234)
+    // Switched to Twilio for better OTP delivery rates
+    // ============================================================================
+    // const arkeselCountryCodes = ['233', '254', '255', '234'];
+    const arkeselCountryCodes: string[] = []; // Empty - all use Twilio now
 
     for (const code of arkeselCountryCodes) {
       if (cleaned.startsWith(code)) {
@@ -177,16 +183,10 @@ class SmsService {
     // PROVIDER NAME FOR DATABASE LOGGING
     // ============================================================================
     // IMPORTANT: This must match the actual primary provider being used
-    // CURRENT: Twilio is primary for US/Canada (+1)
-    // TO UPDATE: When switching back to WhatsApp, change 'twilio' to 'whatsapp' below
+    // CURRENT: Twilio is primary for ALL countries (OTP via Twilio Verify)
     // ============================================================================
 
-    // US/Canada - Using Twilio as primary
-    if (cleaned.startsWith('1')) {
-      return 'twilio'; // A2P campaign approved
-    }
-
-    // All other international numbers use Twilio
+    // All numbers now use Twilio (including US/Canada, Ghana, Kenya, etc.)
     return 'twilio';
   }
 
@@ -1012,23 +1012,16 @@ class CompositeOtpProvider implements SmsProvider {
     const cleaned = phone.replace(/\D/g, '');
 
     // ============================================================================
-    // TWILIO VERIFY WHITELIST - For users experiencing Arkesel delivery issues
+    // TWILIO VERIFY WHITELIST - NO LONGER NEEDED
     // ============================================================================
-    // Add phone numbers here (in E.164 format without +) to route them through
-    // Twilio Verify instead of Arkesel, even if they're in Arkesel countries
-    const twilioVerifyWhitelist = [
-      '233245203024', // Ladybell Pappoe - SMS delivery issues with Arkesel
-      '233244384321', // Veronica Dodoo - 32 OTP attempts, not delivered
-      '233245643212', // Yvonne Bassaku - 15 OTP attempts, not delivered
-      '233244830465', // Gloria Amponsah - 7 OTP attempts, not delivered
-      '233242326199', // Vida Ohepani Nomo - 6 OTP attempts, not delivered
-      '233570268742', // Alberta Akrong - 6 OTP attempts, not delivered
-      '233545527274', // Emelia Anang - 6 OTP attempts, not delivered
-      '233548565473', // Esther Naomi Dedei Amartey-Tagoe - 5 OTP attempts, not delivered
-      '233542030043', // Rita Ofori - 5 OTP attempts, not delivered
-      '233548045775', // Ernitha Abblorh - 5 OTP attempts, not delivered
-      '233244261890', // Patience Butler Aggrey - 5 OTP attempts, not delivered
-    ];
+    // All countries now use Twilio Verify by default, so whitelist is disabled
+    // Previous whitelist users (kept for reference):
+    // - Ladybell Pappoe, Veronica Dodoo, Yvonne Bassaku (successfully voted!)
+    // - Gloria Amponsah, Vida Ohepani Nomo, Alberta Akrong, Emelia Anang
+    // - Esther Naomi Dedei Amartey-Tagoe, Rita Ofori, Ernitha Abblorh
+    // - Patience Butler Aggrey
+    // ============================================================================
+    const twilioVerifyWhitelist: string[] = []; // Disabled - all use Twilio now
 
     // Check if this number is whitelisted for Twilio Verify
     if (twilioVerifyWhitelist.includes(cleaned)) {
@@ -1037,10 +1030,17 @@ class CompositeOtpProvider implements SmsProvider {
     }
     // ============================================================================
 
-    // African countries that should use Arkesel
-    // Ghana: +233, Kenya: +254, Tanzania: +255, Nigeria: +234
-    // Note: South Africa (+27) is NOT supported by Arkesel, routed to Twilio
-    const arkeselCountryCodes = ['233', '254', '255', '234'];
+    // ============================================================================
+    // ARKESEL DISABLED - Switched to Twilio Verify for better OTP delivery
+    // ============================================================================
+    // Previously: Ghana: +233, Kenya: +254, Tanzania: +255, Nigeria: +234
+    // All African countries now use Twilio for OTP delivery due to:
+    // - Better delivery rates (proven with Ghana voters)
+    // - More reliable webhook status updates
+    // - Multi-channel support (SMS, Voice, WhatsApp)
+    // ============================================================================
+    // const arkeselCountryCodes = ['233', '254', '255', '234'];
+    const arkeselCountryCodes: string[] = []; // Empty - all countries use Twilio now
 
     // Check for Arkesel-supported countries (African countries)
     for (const code of arkeselCountryCodes) {
