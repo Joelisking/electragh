@@ -1011,6 +1011,22 @@ class CompositeOtpProvider implements SmsProvider {
     // Remove any non-digit characters
     const cleaned = phone.replace(/\D/g, '');
 
+    // ============================================================================
+    // TWILIO VERIFY WHITELIST - For users experiencing Arkesel delivery issues
+    // ============================================================================
+    // Add phone numbers here (in E.164 format without +) to route them through
+    // Twilio Verify instead of Arkesel, even if they're in Arkesel countries
+    const twilioVerifyWhitelist = [
+      '233245203024', // Ladybell Pappoe - SMS delivery issues with Arkesel
+    ];
+
+    // Check if this number is whitelisted for Twilio Verify
+    if (twilioVerifyWhitelist.includes(cleaned)) {
+      logger.info(`Phone ${phone} is whitelisted for Twilio Verify bypass`);
+      return 'TWILIO';
+    }
+    // ============================================================================
+
     // African countries that should use Arkesel
     // Ghana: +233, Kenya: +254, Tanzania: +255, Nigeria: +234
     // Note: South Africa (+27) is NOT supported by Arkesel, routed to Twilio
